@@ -49,10 +49,13 @@ cleaned_dfAAPL = dfAAPL.dropna()
 # print(dfAAPL.head(25))
 
 # Make sure NaN values are gone
+print("\n=== Data Shape ===")
 print(cleaned_dfAAPL.shape)
+print("\n=== Last 25 Rows ===")
 print(cleaned_dfAAPL.tail(25))
 
 # Make sure most recent day is gone
+print("\n=== Most Recent Target ===")
 print(cleaned_dfAAPL["target"].tail(1))
 
 # Seperate features from target
@@ -70,34 +73,48 @@ y_test = y[split:]
 
 # Standard Scaling
 
-print(f"Before Scaling: {X_train[:5]}")
+print("\n=== Before Scaling ===")
+print(X_train[:5])
 scaler = StandardScaler()
 scaler.fit(X_train)
 
 X_train = scaler.transform(X_train)
 X_test = scaler.transform(X_test)
-print(f"After Scaling: {X_train[:5]}")
+print("\n=== After Scaling ===")
+print(X_train[:5])
 
 # Logistic Regression
 
 log_reg_model = LogisticRegression()
 log_reg_model.fit(X_train, y_train)
 
-print("Logistic Regression Train accuracy:", log_reg_model.score(X_train, y_train))
-print("Logistic Regression Test accuracy:", log_reg_model.score(X_test, y_test))
+print("\n=== Logistic Regression ===")
+print(f"  Train accuracy: {log_reg_model.score(X_train, y_train):.4f}")
+print(f"  Test accuracy:  {log_reg_model.score(X_test, y_test):.4f}")
 
 # Random Forest
 
 rand_for_model = RandomForestClassifier(n_estimators=100, random_state=42)
 rand_for_model.fit(X_train, y_train)
 
-print("Random Forest Train accuracy:", rand_for_model.score(X_train, y_train))
-print("Random Forest Test accuracy:", rand_for_model.score(X_test, y_test))
+print("\n=== Random Forest ===")
+print(f"  Train accuracy: {rand_for_model.score(X_train, y_train):.4f}")
+print(f"  Test accuracy:  {rand_for_model.score(X_test, y_test):.4f}")
+
+# Measuring Random Forest Importance
+
+feature_names = ["pct_change", "ma_5", "ma_20", "volatility", "volume_change", "high_low_change", "gap"]
+print("\n  Feature Importances:")
+for name, score in zip(feature_names, rand_for_model.feature_importances_):
+    print(f"    {name:<20} {score:.4f}")
 
 # Gradient Boosting
 
 grad_boost_model = GradientBoostingClassifier(random_state=42)
 grad_boost_model.fit(X_train, y_train)
 
-print("Gradient Boosting Train accuracy:", grad_boost_model.score(X_train, y_train))
-print("Gradient Boosting Test accuracy:", grad_boost_model.score(X_test, y_test))
+print("\n=== Gradient Boosting ===")
+print(f"  Train accuracy: {grad_boost_model.score(X_train, y_train):.4f}")
+print(f"  Test accuracy:  {grad_boost_model.score(X_test, y_test):.4f}")
+print()
+
