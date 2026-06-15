@@ -7,21 +7,24 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
 
+# Create start date and download data
 start = "2021-01-01"
 AAPL = yf.download("AAPL", start = start)
 
+# Create dataframe
 dfAAPL = pd.DataFrame(AAPL)
 dfAAPL.columns = dfAAPL.columns.get_level_values(0)
 
+# Check data
 # print(dfAAPL.tail(5))
 # print(dfAAPL.info())
 # print(dfAAPL.describe())
 
-# Find average closing price this week
+# Test data by finding average closing price this week
 
 # print(dfAAPL.iloc[-5:]["Close"].mean())
 
-# Plot close price per day over last five days
+# Test data by plotting close price per day over last five days
 
 # dfAAPL.iloc[-5:].plot.line(y= "Close", figsize = (10,6), title = "Close Price per Day this Week")
 # plt.show()
@@ -37,11 +40,12 @@ dfAAPL["volume_change"] = dfAAPL["Volume"].pct_change()
 dfAAPL["high_low_change"] = (dfAAPL["High"] - dfAAPL["Low"]) / (dfAAPL["Close"])
 dfAAPL["gap"] = dfAAPL["Open"] - dfAAPL["Close"].shift(1)
 dfAAPL["target"] = (dfAAPL["Close"].shift(-1) > dfAAPL["Close"]).astype(int)
+
+# Clean data by sclicing off last row and dropping nulls
 dfAAPL = dfAAPL.iloc[:-1]
+cleaned_dfAAPL = dfAAPL.dropna()
 
 # print(dfAAPL.head(25))
-
-cleaned_dfAAPL = dfAAPL.dropna()
 
 # Make sure NaN values are gone
 print(cleaned_dfAAPL.shape)
@@ -49,7 +53,6 @@ print(cleaned_dfAAPL.tail(25))
 
 # Make sure most recent day is gone
 print(cleaned_dfAAPL["target"].tail(1))
-
 
 # Seperate features from target
 X = cleaned_dfAAPL[["pct_change", "ma_5", "ma_20", "volatility", "volume_change", "high_low_change", "gap"]]
