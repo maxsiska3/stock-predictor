@@ -66,3 +66,21 @@ X_test = X[split:]
 
 y_train = y[:split]
 y_test = y[split:]
+
+# Standard Scaling
+
+print(f"Before Scaling: {X_train[:5]}")
+scaler = StandardScaler()
+scaler.fit(X_train)
+
+X_train = scaler.transform(X_train)
+X_test = scaler.transform(X_test)
+print(f"After Scaling: {X_train[:5]}")
+
+# Logistic Regression
+
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+print("Train accuracy:", model.score(X_train, y_train))
+print("Test accuracy:", model.score(X_test, y_test))
