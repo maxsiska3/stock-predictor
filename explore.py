@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier 
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
 
 # Create start date and download data
@@ -79,8 +80,24 @@ print(f"After Scaling: {X_train[:5]}")
 
 # Logistic Regression
 
-model = LogisticRegression()
-model.fit(X_train, y_train)
+log_reg_model = LogisticRegression()
+log_reg_model.fit(X_train, y_train)
 
-print("Train accuracy:", model.score(X_train, y_train))
-print("Test accuracy:", model.score(X_test, y_test))
+print("Logistic Regression Train accuracy:", log_reg_model.score(X_train, y_train))
+print("Logistic Regression Test accuracy:", log_reg_model.score(X_test, y_test))
+
+# Random Forest
+
+rand_for_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rand_for_model.fit(X_train, y_train)
+
+print("Random Forest Train accuracy:", rand_for_model.score(X_train, y_train))
+print("Random Forest Test accuracy:", rand_for_model.score(X_test, y_test))
+
+# Gradient Boosting
+
+grad_boost_model = GradientBoostingClassifier(random_state=42)
+grad_boost_model.fit(X_train, y_train)
+
+print("Gradient Boosting Train accuracy:", grad_boost_model.score(X_train, y_train))
+print("Gradient Boosting Test accuracy:", grad_boost_model.score(X_test, y_test))
