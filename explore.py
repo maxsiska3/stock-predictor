@@ -42,6 +42,26 @@ dfAAPL["high_low_change"] = (dfAAPL["High"] - dfAAPL["Low"]) / (dfAAPL["Close"])
 dfAAPL["gap"] = dfAAPL["Open"] - dfAAPL["Close"].shift(1)
 dfAAPL["target"] = (dfAAPL["Close"].shift(-1) > dfAAPL["Close"]).astype(int)
 
+# RSI Feature (Relative Strength Index)
+daily_aapl_change = dfAAPL["Close"].diff()
+aapl_gains = daily_aapl_change.clip(lower=0)
+aapl_losses = (-daily_aapl_change).clip(lower=0)
+aapl_rolling_gains = aapl_gains.rolling(14).mean()
+aapl_rolling_losses = aapl_losses.rolling(14).mean()
+aapl_rs = aapl_rolling_gains / aapl_rolling_losses
+dfAAPL["rsi"] = 100 - (100/(1 + aapl_rs))
+
+# MACD Feature (Moving Average Conversion Difference)
+aapl_ema_12 = dfAAPL["Close"].ewm(span=12).mean()
+aapl_ema_26 = dfAAPL["Close"].ewm(span=26).mean()
+dfAAPL["macd"] = aapl_ema_12 - aapl_ema_26
+
+# Boiler Bands (Upper and Lower Bounds)
+aapl_bb_std = dfAAPL["Close"].rolling(20).std()
+aapl_bb_upper = dfAAPL["ma_20"] + (2 * aapl_bb_std)
+aapl_bb_lower = dfAAPL["ma_20"] - (2 * aapl_bb_std)
+dfAAPL["boiler_bands_position"] = (dfAAPL["Close"] - aapl_bb_lower) / (aapl_bb_upper - aapl_bb_lower)
+
 # Clean data by sclicing off last row and dropping nulls
 dfAAPL = dfAAPL.iloc[:-1]
 cleaned_dfAAPL = dfAAPL.dropna()
