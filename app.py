@@ -8,6 +8,10 @@ app = Flask(__name__)
 def home():
     return render_template("index.html")
 
+@app.route("/landing")
+def landing():
+    return render_template("landing-screen.html")
+
 @app.route("/predict", methods=["POST"])
 def predict():
     ticker = request.form.get("ticker")
