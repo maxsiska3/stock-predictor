@@ -63,13 +63,19 @@
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
             <!-- Column headers -->
-            <div style="flex:none;display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase">
+            <div style="flex:none;display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px 80px 80px 70px 80px 90px 50px;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase">
               <span>Symbol</span>
               <span>Price</span>
               <span>Chg %</span>
               <span>Change</span>
               <span style="text-align:right">Volume</span>
               <span style="text-align:center">Pred · Tmr</span>
+              <span>Updated</span>
+              <span>Day Graph</span>
+              <span>RSI</span>
+              <span>Beta</span>
+              <span>Mkt Cap</span>
+              <span>Sector</span>
             </div>
             <!-- Rows -->
             <div style="flex:1;overflow-y:auto;min-height:0">
@@ -79,7 +85,7 @@
               {% set pred_color = "var(--up)" if stock.direction == 1 else "var(--down)" %}
               {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
-              <div class="row" data-ticker="{{ stock.ticker }}" style="display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px;align-items:center;gap:8px;padding:6px 16px;border-bottom:1px solid var(--line3);cursor:pointer">
+              <div class="row" data-ticker="{{ stock.ticker }}" style="display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px 80px 80px 70px 80px 90px 50px;align-items:center;gap:8px;padding:6px 16px;border-bottom:1px solid var(--line3);cursor:pointer">
                 <span style="font-weight:700;font-size:13px;color:var(--text)">{{ stock.ticker }}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">${{ "%.2f"|format(stock.price) }}</span>
                 <span class="num" style="font-size:12.5px;font-weight:600;color:{{ chg_color }}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
@@ -88,6 +94,12 @@
                 <div style="display:flex;justify-content:center">
                   <span class="num" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
                 </div>
+                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.updated_at }}</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
               </div>
               {% endfor %}
             </div>

@@ -64,6 +64,7 @@ def fetch_market_data(tickers):
                 "volume":     volume,
                 "direction":  prediction,    # int: 1 = predicted up, 0 = predicted down
                 "confidence": round(float(confidence[0].max()) * 100, 2),  # e.g. 72.0
+                "updated_at": datetime.now().strftime("%-I:%M %p"),
             })
 
         except Exception as e:

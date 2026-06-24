@@ -67,7 +67,8 @@ def build_funds(market_data):
             "holdings": holdings,
             "count": total,
             "avg_conf": avg_conf,
-            "direction": 1 if up_count >= total / 2 else 0,  # majority vote
+            "direction": 1 if up_count >= total / 2 else 0,
+            "updated_at": datetime.now().strftime("%-I:%M %p")
         })
     return funds
 
