@@ -1,4 +1,4 @@
-# MaxAlpha Terminal
+# Siska Terminal
 
 A live stock market dashboard with next-day direction predictions powered by a trained RandomForest model. Built as a summer 2026 learning project.
 

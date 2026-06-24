@@ -2,7 +2,6 @@
 # All yfinance interaction lives here so app.py stays focused on routing.
 
 import yfinance as yf
-import pandas as pd
 from datetime import datetime, timedelta
 from utils.predict import predict_stock
 
@@ -80,7 +79,7 @@ def fetch_market_data(tickers):
 # =============================================================================
 # SUMMARY — utils/market.py
 # =============================================================================
-# This module is the data layer for MaxAlpha Terminal. It owns all yfinance
+# This module is the data layer for Siska Terminal. It owns all yfinance
 # interaction and shields the rest of the app from API details.
 #
 # Key design decisions:

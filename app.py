@@ -1,4 +1,4 @@
-# app.py — Flask web server for MaxAlpha Terminal
+# app.py — Flask web server for Siska Terminal
 # Handles routing, data assembly, and template rendering.
 # Data fetching lives in utils/market.py to keep this file focused on routes.
 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 # =============================================================================
 # SUMMARY — app.py
 # =============================================================================
-# This is the Flask application entry point for MaxAlpha Terminal.
+# This is the Flask application entry point for Siska Terminal.
 #
 # Constants:
 #   WATCHLIST   — 15 tickers displayed in the main table
