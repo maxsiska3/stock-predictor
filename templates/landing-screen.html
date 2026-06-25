@@ -18,6 +18,12 @@
       --hover:#fafafe;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fafaf8;
       --accent:#2f6df6;--accent-soft:#eef2fe;--accent-line:#dbe4fd;
       --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;--scroll:#d4d4cf;
+      --table-col-gap:10px;
+      /* Table grids — edit here only; header + rows share via .watchlist-grid / .funds-grid */
+      /* Watchlist: Symbol | Price | Chg% | Change | Vol | DayGraph | 52H | 52L | P/E | EPS | RSI | Boll | Volatility | MACD | Sector | Pred | Updated */
+      --watchlist-cols:70px 80px 80px 80px 80px 100px 80px 80px 70px 70px 70px 85px 80px 80px 80px 100px 80px;
+      /* Funds: Fund | Holdings | Avg Conf | Tickers */
+      --funds-cols:180px 70px 80px 1fr;
     }
     [data-theme="dark"]{
       --bg:#0f1115;--panel:#161a20;--line:#262c34;--line2:#202630;--line3:#1b212a;
@@ -30,6 +36,17 @@
     ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:5px}
     ::-webkit-scrollbar-track{background:transparent}
     .row:hover{background:var(--hover)}
+
+    .watchlist-grid,.funds-grid{display:grid;align-items:center;column-gap:var(--table-col-gap)}
+    .watchlist-grid{grid-template-columns:var(--watchlist-cols)}
+    .funds-grid{grid-template-columns:var(--funds-cols)}
+    .watchlist-grid>*,.funds-grid>*{display:flex;justify-content:center;align-items:center;width:100%;min-width:0;text-align:center}
+    .table-header{flex:none;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+    .table-row{padding:6px 16px;border-bottom:1px solid var(--line3);cursor:pointer}
+    .funds-grid.table-row{padding:8px 16px}
+    .day-chart{width:100%;height:28px;background:var(--chart-bg);border:1px solid var(--line2);border-radius:2px}
+    .pred-cell{display:flex;justify-content:center;align-items:center;width:100%}
+    .pred-badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;flex-shrink:0}
   </style>
 </head>
 <body>
@@ -62,20 +79,25 @@
 
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
-            <!-- Column headers -->
-            <div style="flex:none;display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px 80px 80px 70px 80px 90px 50px;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase">
+            <!-- Column headers — widths from --watchlist-cols -->
+            <div class="watchlist-grid table-header">
               <span>Symbol</span>
               <span>Price</span>
               <span>Chg %</span>
               <span>Change</span>
-              <span style="text-align:right">Volume</span>
-              <span style="text-align:center">Pred · Tmr</span>
-              <span>Updated</span>
+              <span>Volume</span>
               <span>Day Graph</span>
+              <span>52 Week High</span>
+              <span>52 Week Low</span>
+              <span>P/E</span>
+              <span>EPS</span>
               <span>RSI</span>
-              <span>Beta</span>
-              <span>Mkt Cap</span>
+              <span>Bollinger Pos</span>
+              <span>Volatility</span>
+              <span>MACD</span>
               <span>Sector</span>
+              <span class="pred-cell">Pred · Tmr</span>
+              <span>Updated</span>
             </div>
             <!-- Rows -->
             <div style="flex:1;overflow-y:auto;min-height:0">
@@ -85,21 +107,26 @@
               {% set pred_color = "var(--up)" if stock.direction == 1 else "var(--down)" %}
               {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
-              <div class="row" data-ticker="{{ stock.ticker }}" style="display:grid;grid-template-columns:70px 80px 80px 80px 90px 100px 80px 80px 70px 80px 90px 50px;align-items:center;gap:8px;padding:6px 16px;border-bottom:1px solid var(--line3);cursor:pointer">
+              <div class="row watchlist-grid table-row" data-ticker="{{ stock.ticker }}">
                 <span style="font-weight:700;font-size:13px;color:var(--text)">{{ stock.ticker }}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">${{ "%.2f"|format(stock.price) }}</span>
                 <span class="num" style="font-size:12.5px;font-weight:600;color:{{ chg_color }}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
                 <span class="num" style="font-size:12.5px;color:{{ chg_color }}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
-                <span class="num" style="font-size:11.5px;text-align:right;color:var(--muted2)">{{ stock.volume|vol }}</span>
-                <div style="display:flex;justify-content:center">
-                  <span class="num" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
-                </div>
+                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.volume|vol }}</span>
+                <div class="day-chart" aria-hidden="true"></div>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span style="color:var(--muted)">—</span>
+                <span class="pred-cell">
+                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
+                </span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.updated_at }}</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
               </div>
               {% endfor %}
             </div>
@@ -118,19 +145,20 @@
         </div>
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
-            <div style="flex:none;display:grid;grid-template-columns:180px 70px 80px 1fr;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase">
+            <!-- Column headers — widths from --funds-cols -->
+            <div class="funds-grid table-header">
               <span>Fund</span>
-              <span style="text-align:right">Holdings</span>
-              <span style="text-align:right">Avg Conf</span>
+              <span>Holdings</span>
+              <span>Avg Conf</span>
               <span>Tickers</span>
             </div>
             <div style="flex:1;overflow-y:auto;min-height:0">
               {% for fund in funds %}
               {% set color = "var(--up)" if fund.direction == 1 else "var(--down)" %}
-              <div class="row" style="display:grid;grid-template-columns:180px 70px 80px 1fr;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line3);cursor:pointer">
+              <div class="row funds-grid table-row" data-fund="{{ fund.name }}">
                 <span style="font-weight:700;font-size:13px">{{ fund.name }}</span>
-                <span class="num" style="font-size:12px;text-align:right;color:var(--muted2)">{{ fund.count }}</span>
-                <span class="num" style="font-size:12px;font-weight:600;text-align:right;color:{{ color }}">{{ fund.avg_conf }}%</span>
+                <span class="num" style="font-size:12px;color:var(--muted2)">{{ fund.count }}</span>
+                <span class="num" style="font-size:12px;font-weight:600;color:{{ color }}">{{ fund.avg_conf }}%</span>
                 <span style="font-size:11px;color:var(--muted2)">{{ fund.tickers|join(", ") }}</span>
               </div>
               {% endfor %}
