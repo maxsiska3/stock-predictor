@@ -62,14 +62,14 @@ def fetch_market_data(tickers):
                 "change":     change,        # float, can be negative
                 "pct_change": pct_change,    # float, can be negative
                 "volume":     volume,
-                "52_week_high": ticker_daily["52 Week High"],
-                "52_week_low": ticker_daily["52 Week Low"],
-                "p_e": ticker_daily["P/E"],
-                "eps": ticker_daily["EPS"],
-                "bollinger_pos": ticker_daily["Bollinger Pos"],
-                "volatility": ticker_daily["Volatility"],
-                "macd": ticker_daily["MACD"],
-                "sector": ticker_daily["Sector"],
+                "52_week_high": None,
+                "52_week_low": None,
+                "p_e": None,
+                "eps": None,
+                "bollinger_pos": None,
+                "volatility": None,
+                "macd": None,
+                "sector": None,
                 "direction":  prediction,    # int: 1 = predicted up, 0 = predicted down
                 "confidence": round(float(confidence[0].max()) * 100, 2),  # e.g. 72.0
                 "updated_at": datetime.now().strftime("%-I:%M %p"),
