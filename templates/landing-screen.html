@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ theme }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,10 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var saved = localStorage.getItem("siska-theme");
+      if (saved === "dark" || saved === "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    })();
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%}
-    body{background:#f1f1ee;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    body{background:var(--bg);font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
     .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
     [data-theme]{
       --bg:#f1f1ee;--panel:#ffffff;--line:#e5e5e0;--line2:#eeeeea;--line3:#f3f3ef;
@@ -43,10 +51,48 @@
     .day-chart{width:100%;height:28px;background:var(--chart-bg);border:1px solid var(--line2);border-radius:2px}
     .pred-cell{display:flex;justify-content:center;align-items:center;width:100%}
     .pred-badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;flex-shrink:0}
+    .icon-btn{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:32px;
+      height:32px;
+      padding:0;
+      border:none;
+      border-radius:6px;
+      background:transparent;
+      color:var(--muted);
+      font-size:16px;
+      font-family:inherit;
+      cursor:pointer;
+      transition:background .15s ease, color .15s ease;
+    }
+    .icon-btn:hover{
+      background:var(--hover);
+      color:var(--text2);
+    }
+    .profile-btn{
+      display:flex;
+      align-items:center;
+      gap:5px;
+      padding:4px 8px;
+      border:none;
+      border-radius:6px;
+      background:transparent;
+      color:var(--text2);
+      font-size:13px;
+      font-family:inherit;
+      cursor:pointer;
+      transition:background .15s ease, color .15s ease;
+    }
+    .profile-btn:hover{
+      background:var(--hover);
+      color:var(--text2);
+    }
   </style>
 </head>
 <body>
-<div data-theme="{{ theme }}" style="position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;font-size:13px">
+<div style="position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;font-size:13px">
 
   <!-- Top bar -->
   <header style="flex:none;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
@@ -55,9 +101,9 @@
       <span style="font-size:14px;font-weight:600;letter-spacing:.01em;color:var(--text2)">Siska&nbsp;Terminal</span>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
-      <button style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);font-size:16px;font-family:inherit">⚙</button>
+      <button type="button" class="icon-btn" id="theme-toggle" aria-label="Toggle dark mode">⚙</button>
       <div style="width:1px;height:18px;color:;background:var(--line);"></div>
-      <button style="display:flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;font-family:inherit;"> 
+      <button class="profile-btn">
         <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;background:var(--accent);justify-content:center;font-weight:700;font-size:13px;color:#fff">M</div>
         <span>Max</span>
         <span>▾</span>
@@ -119,9 +165,16 @@
                 <span class="num" style="font-size:12.5px;color:{{ chg_color }}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.volume|vol }}</span>
                 <div class="day-chart" aria-hidden="true"></div>
-                {% for _ in range(10) %}
-                <span style="color:var(--muted)">—</span>
-                {% endfor %}
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span style="font-size:12px;color:var(--text2)">{% if stock.sector %}{{ stock.sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="pred-cell">
                   <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
                 </span>
@@ -251,5 +304,28 @@
     </aside>
   </div>
 </div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById("theme-toggle");
+
+    function applyTheme(theme) {
+      root.setAttribute("data-theme", theme);
+      localStorage.setItem("siska-theme", theme);
+      btn.setAttribute(
+        "aria-label",
+        theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+      );
+    }
+
+    btn.addEventListener("click", function () {
+      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      applyTheme(next);
+    });
+
+    applyTheme(root.getAttribute("data-theme") || "light");
+  })();
+</script>
 </body>
 </html>

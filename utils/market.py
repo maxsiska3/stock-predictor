@@ -1,14 +1,41 @@
 # utils/market.py — market data fetching and caching layer
 # All yfinance interaction lives here so app.py stays focused on routing.
 
+import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 from utils.predict import predict_stock
+from utils.features import compute_features
 
 # Module-level cache — persists between requests for the lifetime of the server process.
-# Storing it here (not in app.py) means both the "/" route and "/api/market-data"
-# share the same cached result without double-fetching.
 _cache = {"data": None, "updated_at": None}
+
+
+def _slice_ticker(df, ticker):
+    """Extract one ticker's OHLCV from a single- or multi-ticker yfinance DataFrame."""
+    if df is None or df.empty:
+        return None
+    if isinstance(df.columns, pd.MultiIndex):
+        return df[ticker].copy()
+    return df.copy()
+
+
+def _safe_float(val, digits=2):
+    """Return a rounded float, or None if missing/NaN."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return None
+    try:
+        return round(float(val), digits)
+    except (TypeError, ValueError):
+        return None
+
+
+def _ticker_info(ticker):
+    """Fetch yfinance .info dict with safe defaults."""
+    try:
+        return yf.Ticker(ticker).info or {}
+    except Exception:
+        return {}
 
 
 def fetch_market_data(tickers):
@@ -18,92 +45,86 @@ def fetch_market_data(tickers):
     Results are cached for 60 seconds to avoid hammering the yfinance rate limit.
     """
 
-    # Return cached data if it's less than 60 seconds old
     if _cache["data"] is not None and _cache["updated_at"] is not None:
         age = datetime.now() - _cache["updated_at"]
         if age < timedelta(seconds=60):
             return _cache["data"]
 
-    # One batch call for 2 days of daily OHLCV — gives us yesterday's close for change calculation
-    daily_df = yf.download(tickers, period="2d", interval="1d", group_by="ticker", auto_adjust=True)
-
-    # One batch call for today's 1-minute bars — gives us the live current price and intraday volume
-    intraday_df = yf.download(tickers, period="1d", interval="1m", group_by="ticker", auto_adjust=True)
+    daily_df    = yf.download(tickers, period="2d",  interval="1d", group_by="ticker", auto_adjust=True)
+    intraday_df = yf.download(tickers, period="1d",  interval="1m", group_by="ticker", auto_adjust=True)
+    year_df     = yf.download(tickers, period="1y",  interval="1d", group_by="ticker", auto_adjust=True)
 
     list_data = []
 
     for ticker in tickers:
         try:
-            # Slice this ticker's rows out of the multi-ticker DataFrames
-            ticker_daily    = daily_df[ticker]
-            ticker_intraday = intraday_df[ticker]
+            ticker_daily    = _slice_ticker(daily_df, ticker)
+            ticker_intraday = _slice_ticker(intraday_df, ticker)
+            ticker_year     = _slice_ticker(year_df, ticker)
 
-            # Yesterday's closing price — used as the baseline for change calculation
             prev_close = ticker_daily["Close"].iloc[-2]
 
-            # Most recent intraday price (≈1 min lag). Fall back to daily close
-            # outside market hours when intraday data is unavailable.
-            if ticker_intraday.empty:
+            if ticker_intraday is None or ticker_intraday.empty:
                 current_price = ticker_daily["Close"].iloc[-1]
+                volume = 0
             else:
                 current_price = ticker_intraday["Close"].iloc[-1]
+                volume = int(ticker_intraday["Volume"].sum())
 
-            # Dollar change vs yesterday's close, percent change, and cumulative volume today
             change     = current_price - prev_close
             pct_change = round((change / prev_close) * 100, 2)
-            volume     = int(ticker_intraday["Volume"].sum())
 
-            # Run the trained RandomForest model to get tomorrow's direction + confidence
+            # 52-week range from 1y daily history
+            week_52_high = None
+            week_52_low  = None
+            if ticker_year is not None and not ticker_year.empty:
+                week_52_high = _safe_float(ticker_year["High"].max())
+                week_52_low  = _safe_float(ticker_year["Low"].min())
+
+            # Technical indicators — same formulas as the ML model (features.py)
+            rsi = bollinger_pos = volatility = macd = None
+            if ticker_year is not None and len(ticker_year) >= 30:
+                features = compute_features(ticker_year)
+                last = features.iloc[-1]
+                rsi           = _safe_float(last["rsi"], 1)
+                bollinger_pos = _safe_float(last["bollinger_bands_position"], 2)
+                volatility    = _safe_float(last["volatility"], 4)
+                macd          = _safe_float(last["macd"], 2)
+
+            # Fundamentals from yfinance .info
+            info   = _ticker_info(ticker)
+            sector = info.get("sector")
+            p_e    = _safe_float(info.get("trailingPE"), 1)
+            eps    = _safe_float(info.get("trailingEps"), 2)
+            beta   = _safe_float(info.get("beta"), 2)
+
             prediction, confidence = predict_stock(ticker)
 
             list_data.append({
-                "ticker":     ticker,
-                "price":      current_price,
-                "change":     change,        # float, can be negative
-                "pct_change": pct_change,    # float, can be negative
-                "volume":     volume,
-                "52_week_high": None,
-                "52_week_low": None,
-                "p_e": None,
-                "eps": None,
-                "bollinger_pos": None,
-                "volatility": None,
-                "macd": None,
-                "sector": None,
-                "direction":  int(prediction[0]),
-                "confidence": round(float(confidence[0].max()) * 100, 2),  # e.g. 72.0
-                "updated_at": datetime.now().strftime("%-I:%M %p"),
+                "ticker":        ticker,
+                "price":         current_price,
+                "change":        change,
+                "pct_change":    pct_change,
+                "volume":        volume,
+                "week_52_high":  week_52_high,
+                "week_52_low":   week_52_low,
+                "p_e":           p_e,
+                "eps":           eps,
+                "rsi":           rsi,
+                "bollinger_pos": bollinger_pos,
+                "volatility":    volatility,
+                "macd":          macd,
+                "beta":          beta,
+                "sector":        sector,
+                "direction":     int(prediction[0]),
+                "confidence":    round(float(confidence[0].max()) * 100, 2),
+                "updated_at":    datetime.now().strftime("%-I:%M %p"),
             })
 
         except Exception as e:
-            # Skip failed tickers rather than crashing the whole fetch
             print(f"Error fetching {ticker}: {e}")
             continue
 
-    # Save to cache so the next request within 60s skips the download
     _cache["data"]       = list_data
     _cache["updated_at"] = datetime.now()
     return list_data
-
-# =============================================================================
-# SUMMARY — utils/market.py
-# =============================================================================
-# This module is the data layer for Siska Terminal. It owns all yfinance
-# interaction and shields the rest of the app from API details.
-#
-# Key design decisions:
-#   - Two batch downloads per refresh cycle (daily + 1m intraday) instead of
-#     N per-ticker calls, to stay within yfinance's free-tier rate limits.
-#   - Module-level _cache dict survives between HTTP requests (Flask reuses the
-#     process), so both the page load and the /api/market-data poll share data.
-#   - 60-second TTL balances freshness with rate-limit safety.
-#   - try/except per ticker means one bad ticker (delisted, bad symbol, etc.)
-#     doesn't wipe out the rest of the watchlist.
-#
-# Data flow:
-#   fetch_market_data(tickers)
-#     → check _cache (return early if < 60s old)
-#     → yf.download() × 2  (daily, intraday)
-#     → loop tickers: slice df, compute stats, run predict_stock()
-#     → store in _cache, return list of dicts
-# =============================================================================
