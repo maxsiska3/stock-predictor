@@ -48,27 +48,13 @@ def build_groups(market_data):
 
 
 def build_funds(market_data):
-    """Attach live market data to each fund's holdings and compute aggregate stats."""
-
-    # Build a fast ticker → data lookup so we don't scan the list repeatedly
-    lookup = {item["ticker"]: item for item in market_data}
+    """Build fund rows for the dashboard. Placeholder metrics wired in template for now."""
 
     funds = []
     for fund in FUNDS:
-        # Only include tickers that successfully fetched data
-        holdings = [lookup[t] for t in fund["tickers"] if t in lookup]
-        total = len(holdings)
-        up_count = sum(1 for h in holdings if h["direction"] == 1)
-        avg_conf = round(sum(h["confidence"] for h in holdings) / total, 1) if total > 0 else 0
-
         funds.append({
             "name": fund["name"],
-            "tickers": fund["tickers"],
-            "holdings": holdings,
-            "count": total,
-            "avg_conf": avg_conf,
-            "direction": 1 if up_count >= total / 2 else 0,
-            "updated_at": datetime.now().strftime("%-I:%M %p")
+            "updated_at": datetime.now().strftime("%-I:%M %p"),
         })
     return funds
 

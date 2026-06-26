@@ -19,11 +19,8 @@
       --accent:#2f6df6;--accent-soft:#eef2fe;--accent-line:#dbe4fd;
       --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;--scroll:#d4d4cf;
       --table-col-gap:10px;
-      /* Table grids — edit here only; header + rows share via .watchlist-grid / .funds-grid */
-      /* Watchlist: Symbol | Price | Chg% | Change | Vol | DayGraph | 52H | 52L | P/E | EPS | RSI | Boll | Volatility | MACD | Sector | Pred | Updated */
-      --watchlist-cols:70px 80px 80px 80px 80px 100px 80px 80px 70px 70px 70px 85px 80px 80px 80px 100px 80px;
-      /* Funds: Fund | Holdings | Avg Conf | Tickers */
-      --funds-cols:180px 70px 80px 1fr;
+      /* Shared 18-col grid — watchlist & funds use identical tracks */
+      --dashboard-cols:100px 80px 80px 80px 80px 100px 80px 80px 70px 70px 70px 85px 80px 80px 70px 80px 100px 80px;
     }
     [data-theme="dark"]{
       --bg:#0f1115;--panel:#161a20;--line:#262c34;--line2:#202630;--line3:#1b212a;
@@ -37,13 +34,12 @@
     ::-webkit-scrollbar-track{background:transparent}
     .row:hover{background:var(--hover)}
 
-    .watchlist-grid,.funds-grid{display:grid;align-items:center;column-gap:var(--table-col-gap)}
-    .watchlist-grid{grid-template-columns:var(--watchlist-cols)}
-    .funds-grid{grid-template-columns:var(--funds-cols)}
+    .watchlist-grid,.funds-grid{display:grid;align-items:center;column-gap:var(--table-col-gap);grid-template-columns:var(--dashboard-cols)}
     .watchlist-grid>*,.funds-grid>*{display:flex;justify-content:center;align-items:center;width:100%;min-width:0;text-align:center}
-    .table-header{flex:none;padding:7px 16px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
-    .table-row{padding:6px 16px;border-bottom:1px solid var(--line3);cursor:pointer}
-    .funds-grid.table-row{padding:8px 16px}
+    .watchlist-grid>:first-child,.funds-grid>:first-child{justify-content:flex-start;text-align:left;padding-right:4px}
+    .table-header{flex:none;padding:7px 12px 7px 10px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+    .table-row{padding:6px 12px 6px 10px;border-bottom:1px solid var(--line3);cursor:pointer}
+    .col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .day-chart{width:100%;height:28px;background:var(--chart-bg);border:1px solid var(--line2);border-radius:2px}
     .pred-cell{display:flex;justify-content:center;align-items:center;width:100%}
     .pred-badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;flex-shrink:0}
@@ -55,10 +51,18 @@
   <!-- Top bar -->
   <header style="flex:none;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;gap:9px">
-      <div style="width:22px;height:22px;border-radius:3px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff">M</div>
+      <div style="width:22px;height:22px;border-radius:3px;background:#FF0000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff">Logo</div>
       <span style="font-size:14px;font-weight:600;letter-spacing:.01em;color:var(--text2)">Siska&nbsp;Terminal</span>
     </div>
-    <span class="num" style="font-size:12px;color:var(--muted)">Auto-refresh every 60s &nbsp;·&nbsp; Last updated: <span id="last-updated">{{ now }}</span></span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);font-size:16px;font-family:inherit">⚙</button>
+      <div style="width:1px;height:18px;color:;background:var(--line);"></div>
+      <button style="display:flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;font-family:inherit;"> 
+        <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;background:var(--accent);justify-content:center;font-weight:700;font-size:13px;color:#fff">M</div>
+        <span>Max</span>
+        <span>▾</span>
+      </button>
+    </div>
   </header>
 
   <!-- Body -->
@@ -79,9 +83,9 @@
 
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
-            <!-- Column headers — widths from --watchlist-cols -->
+            <!-- Column headers — widths from --dashboard-cols (shared with funds) -->
             <div class="watchlist-grid table-header">
-              <span>Symbol</span>
+              <span class="col-ident">Symbol</span>
               <span>Price</span>
               <span>Chg %</span>
               <span>Change</span>
@@ -95,6 +99,7 @@
               <span>Bollinger Pos</span>
               <span>Volatility</span>
               <span>MACD</span>
+              <span>Beta</span>
               <span>Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
@@ -108,21 +113,15 @@
               {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
               <div class="row watchlist-grid table-row" data-ticker="{{ stock.ticker }}">
-                <span style="font-weight:700;font-size:13px;color:var(--text)">{{ stock.ticker }}</span>
+              <span class="col-ident" style="font-size:13px;color:var(--text)">{{ stock.ticker }}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">${{ "%.2f"|format(stock.price) }}</span>
                 <span class="num" style="font-size:12.5px;font-weight:600;color:{{ chg_color }}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
                 <span class="num" style="font-size:12.5px;color:{{ chg_color }}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.volume|vol }}</span>
                 <div class="day-chart" aria-hidden="true"></div>
+                {% for _ in range(10) %}
                 <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
-                <span style="color:var(--muted)">—</span>
+                {% endfor %}
                 <span class="pred-cell">
                   <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
                 </span>
@@ -141,25 +140,46 @@
             <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Funds</h2>
             <span class="num" style="font-size:12px;color:var(--muted)">{{ fundCount }} portfolios</span>
           </div>
-          <button style="padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:2px;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer">+ Add Fund</button>
+          <button style="padding:6px 12px;background:var(--accent);border:1px solid var(--accent);border-radius:2px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer">+ Add Fund</button>
         </div>
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
-            <!-- Column headers — widths from --funds-cols -->
+            <!-- Column headers — same grid tracks as watchlist -->
             <div class="funds-grid table-header">
-              <span>Fund</span>
+              <span class="col-ident">Fund</span>
               <span>Holdings</span>
-              <span>Avg Conf</span>
+              <span>Chg %</span>
+              <span>$ Change</span>
+              <span>Total Value</span>
+              <span>Day Graph</span>
+              <span>Top Performer</span>
+              <span>Worst Performer</span>
+              <span>Outlook</span>
+              <span>Avg EPS</span>
+              <span>Avg RSI</span>
+              <span>Avg Boll Pos</span>
+              <span>Avg Vol</span>
               <span>Tickers</span>
+              <span>Beta</span>
+              <span>Dominant Sector</span>
+              <span class="pred-cell">Pred · Tmr</span>
+              <span>Updated</span>
             </div>
             <div style="flex:1;overflow-y:auto;min-height:0">
               {% for fund in funds %}
-              {% set color = "var(--up)" if fund.direction == 1 else "var(--down)" %}
               <div class="row funds-grid table-row" data-fund="{{ fund.name }}">
-                <span style="font-weight:700;font-size:13px">{{ fund.name }}</span>
-                <span class="num" style="font-size:12px;color:var(--muted2)">{{ fund.count }}</span>
-                <span class="num" style="font-size:12px;font-weight:600;color:{{ color }}">{{ fund.avg_conf }}%</span>
-                <span style="font-size:11px;color:var(--muted2)">{{ fund.tickers|join(", ") }}</span>
+              <span class="col-ident" style="font-size:13px">{{ fund.name }}</span>
+                {% for _ in range(4) %}
+                <span style="color:var(--muted)">—</span>
+                {% endfor %}
+                <div class="day-chart" aria-hidden="true"></div>
+                {% for _ in range(10) %}
+                <span style="color:var(--muted)">—</span>
+                {% endfor %}
+                <span class="pred-cell">
+                  <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)">— —%</span>
+                </span>
+                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ fund.updated_at }}</span>
               </div>
               {% endfor %}
             </div>
@@ -231,17 +251,5 @@
     </aside>
   </div>
 </div>
-
-<script>
-  setInterval(async () => {
-    try {
-      const res = await fetch('/api/market-data');
-      const data = await res.json();
-      document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
-    } catch (e) {
-      console.error('Refresh failed:', e);
-    }
-  }, 60000);
-</script>
 </body>
 </html>
