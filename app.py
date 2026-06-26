@@ -2,6 +2,7 @@
 # Handles routing, data assembly, and template rendering.
 # Data fetching lives in utils/market.py to keep this file focused on routes.
 
+from collections import Counter
 from utils.predict import predict_stock
 from utils.market import fetch_market_data
 from flask import Flask, render_template, request, jsonify
@@ -47,15 +48,81 @@ def build_groups(market_data):
     return mover_groups, pred_groups
 
 
-def build_funds(market_data):
-    """Build fund rows for the dashboard. Placeholder metrics wired in template for now."""
+def _avg_field(holdings, key, digits=2):
+    """Mean of a numeric field across holdings, ignoring missing values."""
+    vals = [h[key] for h in holdings if h.get(key) is not None]
+    if not vals:
+        return None
+    return round(sum(vals) / len(vals), digits)
 
+
+def build_funds(market_data):
+    """Join live market data onto fund holdings and compute aggregate metrics."""
+
+    lookup = {item["ticker"]: item for item in market_data}
+    NOTIONAL = 10_000  # equal $10k per holding for portfolio value estimates
     funds = []
+
     for fund in FUNDS:
+        holdings = [lookup[t] for t in fund["tickers"] if t in lookup]
+        total = len(holdings)
+        updated_at = datetime.now().strftime("%-I:%M %p")
+
+        if total == 0:
+            funds.append({
+                "name":            fund["name"],
+                "holdings":        0,
+                "pct_change":      None,
+                "dollar_change":   None,
+                "total_value":     None,
+                "top_performer":   None,
+                "worst_performer": None,
+                "outlook":         None,
+                "avg_eps":         None,
+                "avg_rsi":         None,
+                "avg_boll":        None,
+                "avg_vol":         None,
+                "tickers":         ", ".join(fund["tickers"]),
+                "avg_beta":        None,
+                "dominant_sector": None,
+                "direction":       0,
+                "avg_conf":        None,
+                "updated_at":      updated_at,
+            })
+            continue
+
+        pct_change = round(sum(h["pct_change"] for h in holdings) / total, 2)
+        dollar_change = round(sum(NOTIONAL * h["pct_change"] / 100 for h in holdings), 2)
+        total_value = round(sum(NOTIONAL * (1 + h["pct_change"] / 100) for h in holdings), 2)
+
+        top = max(holdings, key=lambda x: x["pct_change"])
+        worst = min(holdings, key=lambda x: x["pct_change"])
+
+        up_count = sum(1 for h in holdings if h["direction"] == 1)
+        sectors = [h["sector"] for h in holdings if h.get("sector")]
+        dominant_sector = Counter(sectors).most_common(1)[0][0] if sectors else None
+
         funds.append({
-            "name": fund["name"],
-            "updated_at": datetime.now().strftime("%-I:%M %p"),
+            "name":            fund["name"],
+            "holdings":        total,
+            "pct_change":      pct_change,
+            "dollar_change":   dollar_change,
+            "total_value":     total_value,
+            "top_performer":   top["ticker"],
+            "worst_performer": worst["ticker"],
+            "outlook":         f"{up_count}/{total} up",
+            "avg_eps":         _avg_field(holdings, "eps", 2),
+            "avg_rsi":         _avg_field(holdings, "rsi", 1),
+            "avg_boll":        _avg_field(holdings, "bollinger_pos", 2),
+            "avg_vol":         _avg_field(holdings, "volatility", 4),
+            "tickers":         ", ".join(fund["tickers"]),
+            "avg_beta":        _avg_field(holdings, "beta", 2),
+            "dominant_sector": dominant_sector,
+            "direction":       1 if up_count >= total / 2 else 0,
+            "avg_conf":        round(sum(h["confidence"] for h in holdings) / total, 1),
+            "updated_at":      updated_at,
         })
+
     return funds
 
 
@@ -66,6 +133,13 @@ def format_volume(v):
     if v >= 1_000_000:     return f"{v/1_000_000:.1f}M"
     if v >= 1_000:         return f"{v/1_000:.1f}K"
     return str(int(v))
+
+
+@app.template_filter("money")
+def format_money(v):
+    if v is None:
+        return "—"
+    return f"{v:,.0f}"
 
 
 @app.route("/")

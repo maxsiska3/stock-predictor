@@ -1,0 +1,135 @@
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+#app-root{
+  --table-col-gap:10px;
+  --dashboard-cols:100px 80px 80px 80px 80px 100px 80px 80px 70px 70px 70px 85px 80px 80px 70px 80px 100px 80px;
+  --logo-bg:var(--accent);
+  --logo-fg:#fff;
+}
+
+#app-root[data-theme="light"]{
+  --bg:#f4f3ef;--panel:#ffffff;--accent:#2f6df6;--accent-soft:#eef2fe;--accent-line:#dbe4fd;
+  --text:#1a1c20;--text2:#44484f;--muted:#8a9099;--muted2:#6b7079;
+  --line:#e5e5e0;--line2:#eeeeea;--line3:#f3f3ef;
+  --hover:#fafafe;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fafaf8;
+  --scroll:#d4d4cf;
+  --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;
+}
+
+#app-root[data-theme="dark"]{
+  --bg:#0f1115;--panel:#161a20;--accent:#4d86ff;--accent-soft:#1a2436;--accent-line:#2a3a57;
+  --text:#e7e9ec;--text2:#b3b9c2;--muted:#7b828c;--muted2:#9aa1aa;
+  --line:#262c34;--line2:#202630;--line3:#1b212a;
+  --hover:#1b2129;--chart-bg:#11161d;--sub-bg:#12161d;--soft:#161a20;
+  --scroll:#2c333d;
+  --up:#34d17f;--down:#f26173;--up-bg:#11271e;--down-bg:#2b1518;
+}
+
+#app-root[data-theme="kouros"]{
+  --bg:#0a0f1e;--panel:#111827;--accent:#c9a84c;--accent-soft:#1e1a0e;--accent-line:#3a2e10;
+  --text:#e8eaf0;--text2:#b0b8c8;--muted:#6b7585;--muted2:#8a94a6;
+  --line:#1e2535;--line2:#192030;--line3:#151c2b;
+  --hover:#141b2a;--chart-bg:#0d1322;--sub-bg:#0f1524;--soft:#111827;
+  --scroll:#2a3347;
+  --up:#34d17f;--down:#f26173;--up-bg:#0e2318;--down-bg:#271114;
+  --logo-bg:#c9a84c;
+  --logo-fg:#0a0f1e;
+}
+
+.app-shell{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  background:var(--bg);color:var(--text);font-size:13px;
+}
+
+.app-body{flex:1;display:flex;gap:12px;padding:12px;min-height:0;overflow:hidden}
+
+.app-footer{
+  flex:none;font-size:11px;color:var(--muted);text-align:center;
+  padding:14px 0;border-top:1px solid var(--line);background:var(--panel);
+}
+
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+.row:hover{background:var(--hover)}
+
+.brand{display:flex;align-items:center;gap:9px}
+.logo-badge{
+  width:22px;height:22px;border-radius:3px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:13px;
+  background:var(--logo-bg);color:var(--logo-fg);
+}
+.brand-name{font-size:14px;font-weight:800;letter-spacing:.01em;color:var(--text);line-height:1.2}
+.brand-tagline{font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.2;margin-top:1px}
+
+.watchlist-grid,.funds-grid{display:grid;align-items:center;column-gap:var(--table-col-gap);grid-template-columns:var(--dashboard-cols)}
+.watchlist-grid>*,.funds-grid>*{display:flex;justify-content:center;align-items:center;width:100%;min-width:0;text-align:center}
+.watchlist-grid>:first-child,.funds-grid>:first-child{justify-content:flex-start;text-align:left;padding-right:4px}
+.table-header{flex:none;padding:7px 12px 7px 10px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+.table-row{padding:6px 12px 6px 10px;border-bottom:1px solid var(--line3);cursor:pointer}
+.col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.day-chart{width:100%;height:28px;background:var(--chart-bg);border:1px solid var(--line2);border-radius:2px}
+.pred-cell{display:flex;justify-content:center;align-items:center;width:100%}
+.pred-badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;flex-shrink:0}
+
+.icon-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:32px;height:32px;padding:0;border:none;border-radius:6px;
+  background:transparent;color:var(--muted);font-size:16px;
+  font-family:inherit;cursor:pointer;
+  transition:background .15s ease,color .15s ease;
+}
+.icon-btn:hover{background:var(--hover);color:var(--text2)}
+
+.profile-btn{
+  display:flex;align-items:center;gap:5px;padding:4px 8px;
+  border:none;border-radius:6px;background:transparent;color:var(--text2);
+  font-size:13px;font-family:inherit;cursor:pointer;
+  transition:background .15s ease,color .15s ease;
+}
+.profile-btn:hover{background:var(--hover);color:var(--text2)}
+.profile-avatar{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent);font-weight:700;font-size:13px;color:var(--logo-fg);
+}
+#app-root[data-theme="light"] .profile-avatar,
+#app-root[data-theme="dark"] .profile-avatar{color:#fff}
+
+.theme-wrap{position:relative}
+.theme-menu{
+  display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:168px;
+  padding:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:100;
+}
+.theme-menu.is-open{display:block}
+.theme-option{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:8px 10px;border:none;border-radius:2px;
+  background:transparent;color:var(--text2);
+  font-family:inherit;font-size:13px;text-align:left;cursor:pointer;
+}
+.theme-option:hover{background:var(--hover)}
+.theme-swatch{
+  width:14px;height:14px;border-radius:50%;flex-shrink:0;
+  border:1px solid var(--line);
+}
+.theme-option-label{flex:1}
+.theme-check{
+  width:14px;text-align:center;font-size:12px;color:var(--accent);
+  visibility:hidden;
+}
+.theme-option.is-active .theme-check{visibility:visible}
+.theme-option.is-active .theme-option-label{color:var(--text);font-weight:600}
+
+.btn-accent{
+  padding:6px 12px;background:var(--accent);border:1px solid var(--accent);
+  border-radius:2px;color:var(--logo-fg);font-family:'DM Sans',sans-serif;
+  font-size:12.5px;font-weight:600;cursor:pointer;
+}
+#app-root[data-theme="light"] .btn-accent,
+#app-root[data-theme="dark"] .btn-accent{color:#fff}

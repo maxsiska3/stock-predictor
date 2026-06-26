@@ -1,17 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Stock Predictor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kouros — Bringing data to life</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'DM Sans',system-ui,sans-serif;background:#0a0f1e;color:#e8eaf0;margin:0;padding:40px 24px}
+      h1{font-weight:800;font-size:24px;margin-bottom:4px}
+      .tagline{font-size:11px;color:#6b7585;letter-spacing:.04em;margin-bottom:24px}
+      input,button{font-family:inherit;font-size:14px}
+      input{padding:8px 10px;border:1px solid #1e2535;border-radius:3px;background:#111827;color:#e8eaf0}
+      button{padding:8px 14px;border:none;border-radius:3px;background:#c9a84c;color:#0a0f1e;font-weight:600;cursor:pointer}
+    </style>
 </head>
 <body>
-    <h1>Stock Price Predictor</h1>
+    <h1>Kouros</h1>
+    <p class="tagline">Bringing data to life</p>
     <form action="/predict" method="POST">
         <input type="text" name="ticker" placeholder="Enter ticker (e.g. AAPL)">
         <button type="submit">Predict</button>
     </form>
 
     {% if direction %}
-        <p>{{ ticker }}: {{ direction }} ({{ confidence }}% confidence)</p>
+        <p style="margin-top:16px">{{ ticker }}: {{ direction }} ({{ confidence }}% confidence)</p>
     {% endif %}
+
+    <p style="margin-top:32px;font-size:11px;color:#6b7585">© 2026 Kouros — Bringing data to life</p>
 </body>
 </html>

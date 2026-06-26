@@ -1,110 +1,67 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ theme }}">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Siska Terminal</title>
+  <title>Kouros — Bringing data to life</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
   <script>
     (function () {
-      var saved = localStorage.getItem("siska-theme");
-      if (saved === "dark" || saved === "light") {
-        document.documentElement.setAttribute("data-theme", saved);
-      }
+      var t = localStorage.getItem("kouros-theme");
+      if (t !== "light" && t !== "dark" && t !== "kouros") t = "kouros";
+      var b = { light: "#f4f3ef", dark: "#0f1115", kouros: "#0a0f1e" };
+      document.documentElement.style.background = b[t];
     })();
   </script>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%}
-    body{background:var(--bg);font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-    .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
-    [data-theme]{
-      --bg:#f1f1ee;--panel:#ffffff;--line:#e5e5e0;--line2:#eeeeea;--line3:#f3f3ef;
-      --text:#1c1e22;--text2:#43474e;--muted:#9298a0;--muted2:#6b7079;
-      --hover:#fafafe;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fafaf8;
-      --accent:#2f6df6;--accent-soft:#eef2fe;--accent-line:#dbe4fd;
-      --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;--scroll:#d4d4cf;
-      --table-col-gap:10px;
-      /* Shared 18-col grid — watchlist & funds use identical tracks */
-      --dashboard-cols:100px 80px 80px 80px 80px 100px 80px 80px 70px 70px 70px 85px 80px 80px 70px 80px 100px 80px;
-    }
-    [data-theme="dark"]{
-      --bg:#0f1115;--panel:#161a20;--line:#262c34;--line2:#202630;--line3:#1b212a;
-      --text:#e7e9ec;--text2:#b3b9c2;--muted:#7b828c;--muted2:#9aa1aa;
-      --hover:#1b2129;--chart-bg:#11161d;--sub-bg:#12161d;--soft:#161a20;
-      --accent:#4d86ff;--accent-soft:#1a2436;--accent-line:#2a3a57;
-      --up:#34d17f;--down:#f26173;--up-bg:#11271e;--down-bg:#2b1518;--scroll:#2c333d;
-    }
-    ::-webkit-scrollbar{width:9px;height:9px}
-    ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:5px}
-    ::-webkit-scrollbar-track{background:transparent}
-    .row:hover{background:var(--hover)}
-
-    .watchlist-grid,.funds-grid{display:grid;align-items:center;column-gap:var(--table-col-gap);grid-template-columns:var(--dashboard-cols)}
-    .watchlist-grid>*,.funds-grid>*{display:flex;justify-content:center;align-items:center;width:100%;min-width:0;text-align:center}
-    .watchlist-grid>:first-child,.funds-grid>:first-child{justify-content:flex-start;text-align:left;padding-right:4px}
-    .table-header{flex:none;padding:7px 12px 7px 10px;border-bottom:1px solid var(--line2);font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
-    .table-row{padding:6px 12px 6px 10px;border-bottom:1px solid var(--line3);cursor:pointer}
-    .col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .day-chart{width:100%;height:28px;background:var(--chart-bg);border:1px solid var(--line2);border-radius:2px}
-    .pred-cell{display:flex;justify-content:center;align-items:center;width:100%}
-    .pred-badge{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;flex-shrink:0}
-    .icon-btn{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      width:32px;
-      height:32px;
-      padding:0;
-      border:none;
-      border-radius:6px;
-      background:transparent;
-      color:var(--muted);
-      font-size:16px;
-      font-family:inherit;
-      cursor:pointer;
-      transition:background .15s ease, color .15s ease;
-    }
-    .icon-btn:hover{
-      background:var(--hover);
-      color:var(--text2);
-    }
-    .profile-btn{
-      display:flex;
-      align-items:center;
-      gap:5px;
-      padding:4px 8px;
-      border:none;
-      border-radius:6px;
-      background:transparent;
-      color:var(--text2);
-      font-size:13px;
-      font-family:inherit;
-      cursor:pointer;
-      transition:background .15s ease, color .15s ease;
-    }
-    .profile-btn:hover{
-      background:var(--hover);
-      color:var(--text2);
-    }
-  </style>
 </head>
 <body>
-<div style="position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;font-size:13px">
+<div id="app-root" data-theme="kouros" class="app-shell">
+<script>
+  (function () {
+    var t = localStorage.getItem("kouros-theme");
+    var root = document.getElementById("app-root");
+    if (root && (t === "light" || t === "dark" || t === "kouros")) {
+      root.setAttribute("data-theme", t);
+    }
+  })();
+</script>
 
   <!-- Top bar -->
   <header style="flex:none;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
-    <div style="display:flex;align-items:center;gap:9px">
-      <div style="width:22px;height:22px;border-radius:3px;background:#FF0000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff">Logo</div>
-      <span style="font-size:14px;font-weight:600;letter-spacing:.01em;color:var(--text2)">Siska&nbsp;Terminal</span>
+    <div class="brand">
+      <div class="logo-badge">K</div>
+      <div>
+        <div class="brand-name">Kouros</div>
+        <div class="brand-tagline">Bringing data to life</div>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
-      <button type="button" class="icon-btn" id="theme-toggle" aria-label="Toggle dark mode">⚙</button>
-      <div style="width:1px;height:18px;color:;background:var(--line);"></div>
-      <button class="profile-btn">
-        <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;background:var(--accent);justify-content:center;font-weight:700;font-size:13px;color:#fff">M</div>
+      <div class="theme-wrap">
+        <button type="button" class="icon-btn" id="theme-menu-btn" aria-label="Theme settings" aria-haspopup="true" aria-expanded="false">⚙</button>
+        <div class="theme-menu" id="theme-menu" role="menu" aria-label="Choose theme">
+          <button type="button" class="theme-option" role="menuitemradio" data-theme="light" aria-checked="false">
+            <span class="theme-swatch" style="background:#f4f3ef"></span>
+            <span class="theme-option-label">Light</span>
+            <span class="theme-check">✓</span>
+          </button>
+          <button type="button" class="theme-option" role="menuitemradio" data-theme="dark" aria-checked="false">
+            <span class="theme-swatch" style="background:#0f1115"></span>
+            <span class="theme-option-label">Dark</span>
+            <span class="theme-check">✓</span>
+          </button>
+          <button type="button" class="theme-option" role="menuitemradio" data-theme="kouros" aria-checked="false">
+            <span class="theme-swatch" style="background:#0a0f1e"></span>
+            <span class="theme-option-label">Kouros</span>
+            <span class="theme-check">✓</span>
+          </button>
+        </div>
+      </div>
+      <div style="width:1px;height:18px;background:var(--line)"></div>
+      <button type="button" class="profile-btn">
+        <div class="profile-avatar">M</div>
         <span>Max</span>
         <span>▾</span>
       </button>
@@ -112,7 +69,7 @@
   </header>
 
   <!-- Body -->
-  <div style="flex:1;display:flex;gap:12px;padding:12px;min-height:0;overflow:hidden">
+  <div class="app-body">
 
     <!-- LEFT -->
     <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0">
@@ -124,7 +81,7 @@
             <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Watchlist</h2>
             <span class="num" style="font-size:12px;color:var(--muted)">{{ watchCount }} symbols</span>
           </div>
-          <button style="padding:6px 12px;background:var(--accent);border:1px solid var(--accent);border-radius:2px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer">+ Add Ticker</button>
+          <button type="button" class="btn-accent">+ Add Ticker</button>
         </div>
 
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
@@ -193,7 +150,7 @@
             <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Funds</h2>
             <span class="num" style="font-size:12px;color:var(--muted)">{{ fundCount }} portfolios</span>
           </div>
-          <button style="padding:6px 12px;background:var(--accent);border:1px solid var(--accent);border-radius:2px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer">+ Add Fund</button>
+          <button type="button" class="btn-accent">+ Add Fund</button>
         </div>
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
           <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
@@ -220,17 +177,34 @@
             </div>
             <div style="flex:1;overflow-y:auto;min-height:0">
               {% for fund in funds %}
+              {% set chg_color = "var(--up)" if fund.pct_change is not none and fund.pct_change >= 0 else "var(--down)" %}
+              {% set chg_sign  = "+" if fund.pct_change is not none and fund.pct_change >= 0 else "-" %}
+              {% set pred_color = "var(--up)" if fund.direction == 1 else "var(--down)" %}
+              {% set pred_bg    = "var(--up-bg)" if fund.direction == 1 else "var(--down-bg)" %}
+              {% set arrow      = "▲" if fund.direction == 1 else "▼" %}
               <div class="row funds-grid table-row" data-fund="{{ fund.name }}">
-              <span class="col-ident" style="font-size:13px">{{ fund.name }}</span>
-                {% for _ in range(4) %}
-                <span style="color:var(--muted)">—</span>
-                {% endfor %}
+                <span class="col-ident" style="font-size:13px">{{ fund.name }}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{{ fund.holdings }}</span>
+                <span class="num" style="font-size:12.5px;font-weight:600;color:{% if fund.pct_change is not none %}{{ chg_color }}{% else %}var(--muted){% endif %}">{% if fund.pct_change is not none %}{{ chg_sign }}{{ "%.2f"|format(fund.pct_change|abs) }}%{% else %}—{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:{% if fund.dollar_change is not none %}{{ chg_color }}{% else %}var(--muted){% endif %}">{% if fund.dollar_change is not none %}{{ chg_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.total_value is not none %}${{ fund.total_value|money }}{% else %}—{% endif %}</span>
                 <div class="day-chart" aria-hidden="true"></div>
-                {% for _ in range(10) %}
-                <span style="color:var(--muted)">—</span>
-                {% endfor %}
+                <span style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12px;color:var(--text2)">{% if fund.outlook %}{{ fund.outlook }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_eps is not none %}${{ "%.2f"|format(fund.avg_eps) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span style="font-size:11px;color:var(--muted2)">{{ fund.tickers }}</span>
+                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span style="font-size:12px;color:var(--text2)">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="pred-cell">
+                  {% if fund.avg_conf is not none %}
+                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ fund.avg_conf }}%</span>
+                  {% else %}
                   <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)">— —%</span>
+                  {% endif %}
                 </span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ fund.updated_at }}</span>
               </div>
@@ -303,29 +277,10 @@
       </section>
     </aside>
   </div>
+
+  <footer class="app-footer">© 2026 Kouros — Bringing data to life</footer>
 </div>
 
-<script>
-  (function () {
-    var root = document.documentElement;
-    var btn = document.getElementById("theme-toggle");
-
-    function applyTheme(theme) {
-      root.setAttribute("data-theme", theme);
-      localStorage.setItem("siska-theme", theme);
-      btn.setAttribute(
-        "aria-label",
-        theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-      );
-    }
-
-    btn.addEventListener("click", function () {
-      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      applyTheme(next);
-    });
-
-    applyTheme(root.getAttribute("data-theme") || "light");
-  })();
-</script>
+<script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>
