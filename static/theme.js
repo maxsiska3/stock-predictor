@@ -2,7 +2,6 @@
   var STORAGE_KEY = "kouros-theme";
   var THEMES = ["light", "dark", "kouros"];
   var DEFAULT_THEME = "kouros";
-
   var BG = { light: "#f4f3ef", dark: "#0f1115", kouros: "#0a0f1e" };
 
   function normalize(theme) {
@@ -13,6 +12,19 @@
     return normalize(localStorage.getItem(STORAGE_KEY));
   }
 
+  function updateBadge(theme) {
+    var badge = document.getElementById("k-badge");
+    if (!badge) return;
+    var fills = badge.querySelectorAll(".logo-fill");
+    if (theme === "kouros") {
+      badge.style.background = "";
+      fills.forEach(function (el) { el.setAttribute("fill", "#c9a84c"); });
+    } else {
+      badge.style.background = "";
+      fills.forEach(function (el) { el.setAttribute("fill", "#ffffff"); });
+    }
+  }
+
   function applyTheme(theme) {
     var root = document.getElementById("app-root");
     if (!root) return;
@@ -21,6 +33,7 @@
     root.setAttribute("data-theme", theme);
     localStorage.setItem(STORAGE_KEY, theme);
     document.body.style.background = BG[theme];
+    updateBadge(theme);
 
     document.querySelectorAll(".theme-option").forEach(function (btn) {
       var active = btn.getAttribute("data-theme") === theme;
@@ -52,9 +65,10 @@
   function init() {
     var btn = document.getElementById("theme-menu-btn");
     var menu = document.getElementById("theme-menu");
-    if (!btn || !menu) return;
 
     applyTheme(getStoredTheme());
+
+    if (!btn || !menu) return;
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -69,13 +83,8 @@
       });
     });
 
-    document.addEventListener("click", function () {
-      closeMenu();
-    });
-
-    menu.addEventListener("click", function (e) {
-      e.stopPropagation();
-    });
+    document.addEventListener("click", closeMenu);
+    menu.addEventListener("click", function (e) { e.stopPropagation(); });
   }
 
   if (document.readyState === "loading") {

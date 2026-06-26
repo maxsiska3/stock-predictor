@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kouros — Bringing data to life</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <script>
     (function () {
       var t = localStorage.getItem("kouros-theme");
@@ -30,12 +31,16 @@
 </script>
 
   <!-- Top bar -->
-  <header style="flex:none;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
-    <div class="brand">
-      <div class="logo-badge">K</div>
-      <div>
-        <div class="brand-name">Kouros</div>
-        <div class="brand-tagline">Bringing data to life</div>
+  <header style="flex:none;min-height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="k-badge" id="k-badge">
+        <svg class="k-badge-svg" viewBox="0 0 240 600" aria-hidden="true">
+          <polygon class="logo-fill" points="112,48 128,48 144,58 150,78 148,116 140,132 132,148 130,156 196,200 188,312 178,410 176,422 160,412 152,206 136,312 150,384 146,498 142,558 176,584 176,598 124,598 122,394 120,390 118,394 116,598 64,598 64,584 98,558 94,498 90,384 104,312 88,206 80,412 64,422 62,410 52,312 44,200 110,156 108,148 100,132 92,116 90,78 96,58"/>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="app-name">Kouros</span>
+        <span class="app-tagline">Bringing data to life</span>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -53,7 +58,7 @@
             <span class="theme-check">✓</span>
           </button>
           <button type="button" class="theme-option" role="menuitemradio" data-theme="kouros" aria-checked="false">
-            <span class="theme-swatch" style="background:#0a0f1e"></span>
+            <span class="theme-swatch theme-swatch-kouros" style="background:#0a0f1e"></span>
             <span class="theme-option-label">Kouros</span>
             <span class="theme-check">✓</span>
           </button>
@@ -131,9 +136,9 @@
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span style="font-size:12px;color:var(--text2)">{% if stock.sector %}{{ stock.sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="col-text" style="font-size:12px;color:var(--text2)">{% if stock.sector %}{{ stock.sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="pred-cell">
-                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ stock.confidence }}%</span>
+                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
                 </span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.updated_at }}</span>
               </div>
@@ -189,21 +194,21 @@
                 <span class="num" style="font-size:12.5px;color:{% if fund.dollar_change is not none %}{{ chg_color }}{% else %}var(--muted){% endif %}">{% if fund.dollar_change is not none %}{{ chg_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.total_value is not none %}${{ fund.total_value|money }}{% else %}—{% endif %}</span>
                 <div class="day-chart" aria-hidden="true"></div>
-                <span style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="col-text" style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="col-text" style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12px;color:var(--text2)">{% if fund.outlook %}{{ fund.outlook }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_eps is not none %}${{ "%.2f"|format(fund.avg_eps) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span style="font-size:11px;color:var(--muted2)">{{ fund.tickers }}</span>
+                <span class="col-text" style="font-size:11px;color:var(--muted2)">{{ fund.tickers }}</span>
                 <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span style="font-size:12px;color:var(--text2)">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="col-text" style="font-size:12px;color:var(--text2)">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
                 <span class="pred-cell">
                   {% if fund.avg_conf is not none %}
-                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}">{{ arrow }} {{ fund.avg_conf }}%</span>
+                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.1f"|format(fund.avg_conf) }}%</span></span>
                   {% else %}
-                  <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)">— —%</span>
+                  <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)"><span class="pred-arrow">—</span><span class="pred-pct">—%</span></span>
                   {% endif %}
                 </span>
                 <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ fund.updated_at }}</span>
@@ -235,13 +240,13 @@
           {% set color = "var(--up)" if item.direction == 1 else "var(--down)" %}
           {% set arrow = "▲" if item.direction == 1 else "▼" %}
           {% set pred_bg = "var(--up-bg)" if item.direction == 1 else "var(--down-bg)" %}
-          <div class="row" style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid var(--line3);cursor:pointer">
+          <div class="row side-row">
             <div style="display:flex;flex-direction:column;min-width:52px">
               <span style="font-weight:700;font-size:12.5px;line-height:1.25">{{ item.ticker }}</span>
               <span class="num" style="font-size:10px;color:var(--muted);line-height:1.2">${{ "%.2f"|format(item.price) }}</span>
             </div>
             <div style="flex:1"></div>
-            <span class="num" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;width:68px;font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:2px;background:{{ pred_bg }};color:{{ color }}">{{ arrow }} {{ item.confidence }}%</span>
+            <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(item.confidence) }}%</span></span>
           </div>
           {% endfor %}
           {% endfor %}
@@ -255,7 +260,7 @@
           {% for item in group.rows %}
           {% set color = "var(--up)" if item.pct_change >= 0 else "var(--down)" %}
           {% set sign = "+" if item.pct_change >= 0 else "-" %}
-          <div class="row" style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid var(--line3);cursor:pointer">
+          <div class="row side-row">
             <div style="display:flex;flex-direction:column;min-width:52px">
               <span style="font-weight:700;font-size:12.5px;line-height:1.25">{{ item.ticker }}</span>
               <span class="num" style="font-size:10px;color:var(--muted);line-height:1.2">${{ "%.2f"|format(item.price) }}</span>

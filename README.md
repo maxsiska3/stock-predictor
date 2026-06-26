@@ -4,73 +4,161 @@
 
 A live stock market dashboard with next-day direction predictions powered by a trained RandomForest model. Built as a summer 2026 learning project.
 
-## What it does
+---
 
-- Displays a live watchlist of 15 tickers with real-time price, change, volume, and technical indicators
-- Predicts whether each stock will go up or down the next trading day using a trained ML model
-- Shows top gainers, losers, most active stocks, and highest-confidence predictions in a side panel
-- Aggregates holdings into funds with portfolio-level metrics and prediction outlook
-- Three UI themes: **Light**, **Dark**, and **Kouros** (signature gold-on-navy brand theme)
+## Overview
 
-## Tech Stack
+Kouros pulls live market data for a watchlist of tickers, surfaces technical indicators and fundamentals, and runs a trained ML classifier to predict whether each stock will move up or down the next trading day. Holdings can be grouped into funds with portfolio-level metrics and an aggregated prediction outlook.
 
-- Python, pandas, scikit-learn — ML pipeline and feature engineering
-- Flask + Jinja2 — web server and templating
-- yfinance — live and historical market data
-- RandomForest — trained classifier for next-day direction prediction
+The UI is a single-page Flask dashboard with a unified 18-column grid for watchlist and funds tables, a movers & predictions sidebar, and a three-theme design system (Light, Dark, Kouros).
 
-## Project Structure
+---
 
-```
-app.py                  — Flask routes, data assembly, template rendering
-utils/
-  market.py             — batch market data fetching and 60s cache
-  predict.py            — loads trained model and runs predictions
-  features.py           — feature engineering (RSI, MACD, Bollinger Bands, etc.)
-model/
-  trained_model.pkl     — trained RandomForest classifier
-  scaler.pkl            — fitted StandardScaler for feature normalization
-templates/
-  landing-screen.html   — main Kouros dashboard UI
-  index.html            — legacy single-ticker prediction form
-static/
-  theme.css             — Kouros design system and theme variables
-  theme.js              — theme switcher (Light / Dark / Kouros)
-get_predictions.py      — CLI script to batch-run predictions on 50 tickers
-```
+## Features
 
-## ML Features
+### Watchlist
+- Live price, change %, dollar change, and volume for 15 tickers
+- 52-week high/low, P/E, EPS, RSI, Bollinger position, volatility, MACD, beta, and sector
+- Next-day prediction badge (direction + model confidence)
+- Shared column grid aligned with the funds table
 
-The model is trained on the following technical indicators computed from daily OHLCV data:
+### Funds
+- Hardcoded portfolios aggregated from watchlist holdings
+- Portfolio change %, dollar change, total value, top/worst performer
+- Tomorrow outlook (e.g. `4/6 up`), average technicals, dominant sector
+- Aggregated prediction direction and average confidence
 
-- pct_change, volatility, volume_change, high_low_change, gap
+### Movers & Predictions sidebar
+- Top 5 predicted up / predicted down (ranked by confidence)
+- Top gainers, losers, and most active by volume
+
+### Branding & themes
+- **Kouros** signature theme (navy + gold) as default
+- Light and Dark workspace themes via header gear menu
+- Theme preference persisted in `localStorage`
+- Typography: [Marcellus SC](https://fonts.google.com/specimen/Marcellus+SC) (display) + [Archivo](https://fonts.google.com/specimen/Archivo) (UI)
+- Logo assets: statue mark, K monogram, SVG favicon
+
+---
+
+## Tech stack
+
+| Layer | Tools |
+|-------|-------|
+| Backend | Python, Flask, Jinja2 |
+| ML | scikit-learn, pandas, joblib |
+| Data | yfinance (batch downloads, 60s cache) |
+| Frontend | HTML templates, CSS custom properties, vanilla JS |
+
+---
+
+## ML pipeline
+
+The RandomForest classifier is trained on daily OHLCV features:
+
+- `pct_change`, `volatility`, `volume_change`, `high_low_change`, `gap`
 - RSI, MACD, Bollinger Bands position
 
-## Running Locally
+Trained artifacts live in `model/`:
+
+- `trained_model.pkl` — fitted classifier
+- `scaler.pkl` — `StandardScaler` for feature normalization
+
+Feature engineering is shared between training (`explore.py`) and inference (`utils/features.py`).
+
+---
+
+## Project structure
+
+```
+app.py                      Flask routes, fund aggregation, Jinja filters
+utils/
+  market.py                 Batch yfinance fetching + 60s cache
+  predict.py                Load model/scaler, run predictions
+  features.py               Technical indicator computation
+model/
+  trained_model.pkl
+  scaler.pkl
+templates/
+  landing-screen.html       Main dashboard
+  index.html                Legacy single-ticker prediction form
+static/
+  styles.css                Design system + theme variables
+  theme.js                  Theme switcher (Light / Dark / Kouros)
+  kouros-mark.svg           Logo figure silhouette
+  kouros-k.svg              K monogram
+  favicon.svg
+get_predictions.py          CLI — batch predictions for 50 tickers
+explore.py                  Model training notebook/script (not used at runtime)
+```
+
+---
+
+## Running locally
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Then open http://127.0.0.1:5001
+Open **http://127.0.0.1:5001**
+
+> First load can take 15–20 seconds while yfinance fetches history and the model runs per ticker.
+
+### CLI predictions
+
+```bash
+python get_predictions.py
+```
+
+Runs next-day predictions across a batch of tickers and prints results to the terminal.
+
+---
+
+## API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Full dashboard (HTML) |
+| `GET /api/market-data` | JSON watchlist, mover groups, prediction groups |
+| `POST /predict` | Legacy form endpoint for single-ticker prediction |
+
+---
 
 ## Themes
 
-Click the **⚙** icon in the header to switch themes. Your choice is saved in `localStorage` and persists across sessions. Default theme is **Kouros**.
+Click the **⚙** icon in the header to switch themes. Choice is saved under `kouros-theme` in `localStorage`.
 
-| Theme | Description |
-|-------|-------------|
-| Light | Clean off-white workspace with blue accents |
-| Dark | Low-light charcoal UI |
-| Kouros | Signature navy + gold brand theme |
+| Theme | Background | Accent | Description |
+|-------|------------|--------|-------------|
+| **Kouros** | `#0a0f1e` | `#c9a84c` | Default — navy + gold brand theme |
+| Light | `#f4f3ef` | `#2f6df6` | Clean off-white workspace |
+| Dark | `#0f1115` | `#4d86ff` | Low-light charcoal UI |
 
-## Data Notes
+---
 
-- Price data is fetched via yfinance in batch calls per refresh cycle (daily, intraday, and 1y history)
-- Data is cached for 60 seconds to stay within yfinance free-tier rate limits
-- Outside market hours, the dashboard falls back to the most recent daily close price
+## Data notes
+
+- Prices come from yfinance batch calls (2d daily, 1d intraday, 1y history per refresh)
+- Responses are cached for **60 seconds** to respect free-tier rate limits
+- Outside market hours, intraday data falls back to the most recent daily close
+- Fund values use equal **$10k notional** per holding for portfolio estimates
+
+---
+
+## Roadmap
+
+- [ ] Live DOM updates from `/api/market-data` polling (no full page reload)
+- [ ] Add / remove tickers and funds from the UI
+- [ ] Day graph sparklines in watchlist rows
+- [ ] Heat map view
+
+---
 
 ## Status
 
-In progress — summer 2026 learning project
+In progress — summer 2026 learning project. Not financial advice.
+
+## License
+
+Personal learning project. Use at your own discretion.

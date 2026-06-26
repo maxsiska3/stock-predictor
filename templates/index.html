@@ -4,21 +4,45 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kouros — Bringing data to life</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-      body{font-family:'DM Sans',system-ui,sans-serif;background:#0a0f1e;color:#e8eaf0;margin:0;padding:40px 24px}
-      h1{font-weight:800;font-size:24px;margin-bottom:4px}
-      .tagline{font-size:11px;color:#6b7585;letter-spacing:.04em;margin-bottom:24px}
-      input,button{font-family:inherit;font-size:14px}
-      input{padding:8px 10px;border:1px solid #1e2535;border-radius:3px;background:#111827;color:#e8eaf0}
-      button{padding:8px 14px;border:none;border-radius:3px;background:#c9a84c;color:#0a0f1e;font-weight:600;cursor:pointer}
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+      (function () {
+        var t = localStorage.getItem("kouros-theme");
+        if (t !== "light" && t !== "dark" && t !== "kouros") t = "kouros";
+        var b = { light: "#f4f3ef", dark: "#0f1115", kouros: "#0a0f1e" };
+        document.documentElement.style.background = b[t];
+      })();
+    </script>
 </head>
 <body>
-    <h1>Kouros</h1>
-    <p class="tagline">Bringing data to life</p>
+<div id="app-root" data-theme="kouros" class="page-simple">
+<script>
+  (function () {
+    var t = localStorage.getItem("kouros-theme");
+    var root = document.getElementById("app-root");
+    if (root && (t === "light" || t === "dark" || t === "kouros")) {
+      root.setAttribute("data-theme", t);
+    }
+  })();
+</script>
+
+  <main>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <div class="k-badge" id="k-badge">
+        <svg class="k-badge-svg" viewBox="0 0 240 600" aria-hidden="true">
+          <polygon class="logo-fill" points="112,48 128,48 144,58 150,78 148,116 140,132 132,148 130,156 196,200 188,312 178,410 176,422 160,412 152,206 136,312 150,384 146,498 142,558 176,584 176,598 124,598 122,394 120,390 118,394 116,598 64,598 64,584 98,558 94,498 90,384 104,312 88,206 80,412 64,422 62,410 52,312 44,200 110,156 108,148 100,132 92,116 90,78 96,58"/>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="app-name">Kouros</span>
+        <span class="app-tagline">Bringing data to life</span>
+      </div>
+    </div>
+
     <form action="/predict" method="POST">
         <input type="text" name="ticker" placeholder="Enter ticker (e.g. AAPL)">
         <button type="submit">Predict</button>
@@ -27,7 +51,11 @@
     {% if direction %}
         <p style="margin-top:16px">{{ ticker }}: {{ direction }} ({{ confidence }}% confidence)</p>
     {% endif %}
+  </main>
 
-    <p style="margin-top:32px;font-size:11px;color:#6b7585">© 2026 Kouros — Bringing data to life</p>
+  <footer class="app-footer">© 2026 Kouros — Bringing data to life</footer>
+</div>
+
+<script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>
