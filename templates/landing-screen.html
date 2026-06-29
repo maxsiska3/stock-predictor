@@ -86,7 +86,7 @@
             <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Watchlist</h2>
             <span class="num" style="font-size:12px;color:var(--muted)">{{ watchCount }} symbols</span>
           </div>
-          <button type="button" class="btn-accent">+ Add Ticker</button>
+          <button type="button" class="btn-accent" id="add-ticker-btn">+ Add Ticker</button>
         </div>
 
         <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
@@ -111,9 +111,11 @@
               <span>Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
+              <span class="col-action" aria-hidden="true"></span>
             </div>
             <!-- Rows -->
             <div style="flex:1;overflow-y:auto;min-height:0">
+              {% if watchlist %}
               {% for stock in watchlist %}
               {% set chg_color = "var(--up)" if stock.change >= 0 else "var(--down)" %}
               {% set chg_sign  = "+" if stock.change >= 0 else "-" %}
@@ -121,28 +123,36 @@
               {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
               <div class="row watchlist-grid table-row" data-ticker="{{ stock.ticker }}">
-              <span class="col-ident" style="font-size:13px;color:var(--text)">{{ stock.ticker }}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">${{ "%.2f"|format(stock.price) }}</span>
-                <span class="num" style="font-size:12.5px;font-weight:600;color:{{ chg_color }}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
-                <span class="num" style="font-size:12.5px;color:{{ chg_color }}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
-                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.volume|vol }}</span>
+                <span class="col-ident symbol-cell">{{ stock.ticker }}</span>
+                <span class="num">${{ "%.2f"|format(stock.price) }}</span>
+                <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
+                <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
+                <span class="num cell-muted">{{ stock.volume|vol }}</span>
                 <div class="day-chart" aria-hidden="true"></div>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="col-text" style="font-size:12px;color:var(--text2)">{% if stock.sector %}{{ stock.sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% elif stock.eps_note %}<span class="field-note">{{ stock.eps_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% elif stock.beta_note %}<span class="field-note">{{ stock.beta_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="col-text">{% if stock.sector %}{{ stock.sector }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="pred-cell">
                   <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
                 </span>
-                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ stock.updated_at }}</span>
+                <span class="num cell-muted">{{ stock.updated_at }}</span>
+                <span class="col-action">
+                  <button type="button" class="row-action-btn remove-ticker-btn" data-ticker="{{ stock.ticker }}" aria-label="Remove {{ stock.ticker }}">×</button>
+                </span>
               </div>
               {% endfor %}
+              {% else %}
+              <div class="watchlist-empty">
+                No symbols yet. Click <strong>+ Add Ticker</strong> to build your watchlist.
+              </div>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -179,6 +189,7 @@
               <span>Dominant Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
+              <span class="col-action" aria-hidden="true"></span>
             </div>
             <div style="flex:1;overflow-y:auto;min-height:0">
               {% for fund in funds %}
@@ -188,22 +199,22 @@
               {% set pred_bg    = "var(--up-bg)" if fund.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if fund.direction == 1 else "▼" %}
               <div class="row funds-grid table-row" data-fund="{{ fund.name }}">
-                <span class="col-ident" style="font-size:13px">{{ fund.name }}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{{ fund.holdings }}</span>
-                <span class="num" style="font-size:12.5px;font-weight:600;color:{% if fund.pct_change is not none %}{{ chg_color }}{% else %}var(--muted){% endif %}">{% if fund.pct_change is not none %}{{ chg_sign }}{{ "%.2f"|format(fund.pct_change|abs) }}%{% else %}—{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:{% if fund.dollar_change is not none %}{{ chg_color }}{% else %}var(--muted){% endif %}">{% if fund.dollar_change is not none %}{{ chg_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.total_value is not none %}${{ fund.total_value|money }}{% else %}—{% endif %}</span>
+                <span class="col-ident">{{ fund.name }}</span>
+                <span class="num">{{ fund.holdings }}</span>
+                <span class="num cell-pct {% if fund.pct_change is not none %}{% if fund.pct_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.pct_change is not none %}{{ chg_sign }}{{ "%.2f"|format(fund.pct_change|abs) }}%{% else %}—{% endif %}</span>
+                <span class="num {% if fund.dollar_change is not none %}{% if fund.dollar_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.dollar_change is not none %}{{ chg_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
+                <span class="num">{% if fund.total_value is not none %}${{ fund.total_value|money }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <div class="day-chart" aria-hidden="true"></div>
-                <span class="col-text" style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="col-text" style="font-size:12px;font-weight:600;color:var(--text)">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12px;color:var(--text2)">{% if fund.outlook %}{{ fund.outlook }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_eps is not none %}${{ "%.2f"|format(fund.avg_eps) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="col-text" style="font-size:11px;color:var(--muted2)">{{ fund.tickers }}</span>
-                <span class="num" style="font-size:12.5px;color:var(--text)">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
-                <span class="col-text" style="font-size:12px;color:var(--text2)">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</span>
+                <span class="col-text">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="col-text">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.outlook %}{{ fund.outlook }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.avg_eps is not none %}${{ "%.2f"|format(fund.avg_eps) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="col-text cell-muted">{{ fund.tickers }}</span>
+                <span class="num">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="col-text">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="pred-cell">
                   {% if fund.avg_conf is not none %}
                   <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.1f"|format(fund.avg_conf) }}%</span></span>
@@ -211,7 +222,8 @@
                   <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)"><span class="pred-arrow">—</span><span class="pred-pct">—%</span></span>
                   {% endif %}
                 </span>
-                <span class="num" style="font-size:11.5px;color:var(--muted2)">{{ fund.updated_at }}</span>
+                <span class="num cell-muted">{{ fund.updated_at }}</span>
+                <span class="col-action" aria-hidden="true"></span>
               </div>
               {% endfor %}
             </div>
@@ -284,8 +296,30 @@
   </div>
 
   <footer class="app-footer">© 2026 Kouros — Bringing data to life</footer>
+
+  <!-- Add-ticker modal (inside #app-root so it inherits theme CSS variables) -->
+  <div class="modal-overlay" id="add-ticker-modal" hidden>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-ticker-title">
+      <div class="modal-header">
+        <span class="modal-title" id="add-ticker-title">Add Tickers</span>
+        <button type="button" class="modal-close-btn" id="add-ticker-cancel" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-search-wrap">
+        <input type="text" id="ticker-search-input" placeholder="Search symbol or company…" autocomplete="off" spellcheck="false">
+      </div>
+      <p class="modal-hint">Click a result to select it — typed text is not added directly</p>
+      <div id="ticker-search-results" class="ticker-search-results"></div>
+      <p id="add-ticker-message" class="modal-message"></p>
+      <div class="modal-footer">
+        <span id="add-ticker-selected-count" class="modal-selected-count">0 selected</span>
+        <button type="button" class="btn-cancel" id="add-ticker-cancel-btn">Cancel</button>
+        <button type="button" class="btn-accent" id="add-ticker-confirm" disabled>Add to Watchlist</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="{{ url_for('static', filename='theme.js') }}"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

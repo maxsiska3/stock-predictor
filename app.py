@@ -1,33 +1,46 @@
-# app.py — Flask web server for Siska Terminal
-# Handles routing, data assembly, and template rendering.
-# Data fetching lives in utils/market.py to keep this file focused on routes.
+# app.py — Flask web server for Kouros
+# Routes, template rendering, and dashboard data assembly.
+# Market fetching: utils/market.py | Watchlist persistence: utils/watchlist_store.py
 
 from collections import Counter
-from utils.predict import predict_stock
-from utils.market import fetch_market_data
-from flask import Flask, render_template, request, jsonify
 from datetime import datetime
+
+from flask import Flask, jsonify, render_template, request
+
+from utils.market import fetch_market_data
+from utils.predict import predict_stock
+from utils.ticker_search import search_tickers
+from utils.watchlist_store import WatchlistError, add_tickers, load_watchlist, remove_ticker
 
 app = Flask(__name__)
 
-# Tickers shown in the main watchlist table
-WATCHLIST = [
-    "ACN", "AAPL", "META", "GOOG", "AMZN",
-    "TSM", "NVDA", "TSLA", "AMD", "BRK-B",
-    "ORCL", "PLTR", "MU", "JPM", "AVGO"
-]
-
-# Hardcoded fund definitions — tickers list drives which holdings are shown
+# Hardcoded fund definitions — tickers list drives which holdings are shown (dynamic funds later).
 FUNDS = [
     {"name": "Max's Fund",     "tickers": ["ACN", "AAPL", "AMZN", "BRK-B", "NVDA", "JPM"]},
     {"name": "Excelsior Fund", "tickers": ["AMD", "ORCL", "MU", "PLTR"]},
 ]
 
 
+def get_fetch_tickers():
+    """
+    Tickers to pass to fetch_market_data.
+    Union of user watchlist + fund holdings so funds still load when watchlist is empty.
+    """
+    watchlist = load_watchlist()
+    fund_tickers = {t for f in FUNDS for t in f["tickers"]}
+    return list(dict.fromkeys(watchlist + list(fund_tickers)))
+
+
+def _split_watchlist_rows(market_data_all):
+    """Watchlist table + sidebar use saved symbols only; funds use the full fetch set."""
+    watchlist_symbols = set(load_watchlist())
+    watchlist_rows = [r for r in market_data_all if r["ticker"] in watchlist_symbols]
+    return watchlist_rows, watchlist_symbols
+
+
 def build_groups(market_data):
     """Sort market_data into mover and prediction groups for the right panel."""
 
-    # Each group is a dict with a title, dot color, and a ranked list of tickers
     mover_groups = [
         {"title": "Gainers",     "key": "gainers", "dot": "var(--up)",
          "rows": sorted(market_data, key=lambda x: x["pct_change"], reverse=True)[:5]},
@@ -37,7 +50,6 @@ def build_groups(market_data):
          "rows": sorted(market_data, key=lambda x: x["volume"], reverse=True)[:5]},
     ]
 
-    # Filter by ML direction first, then rank by model confidence
     pred_groups = [
         {"title": "Predicted Up Tomorrow",   "dot": "var(--up)",
          "rows": sorted([x for x in market_data if x["direction"] == 1], key=lambda x: x["confidence"], reverse=True)[:5]},
@@ -60,7 +72,7 @@ def build_funds(market_data):
     """Join live market data onto fund holdings and compute aggregate metrics."""
 
     lookup = {item["ticker"]: item for item in market_data}
-    NOTIONAL = 10_000  # equal $10k per holding for portfolio value estimates
+    NOTIONAL = 10_000
     funds = []
 
     for fund in FUNDS:
@@ -126,12 +138,15 @@ def build_funds(market_data):
     return funds
 
 
-# Jinja2 filter: converts raw volume int to human-readable string (e.g. 54200000 → "54.2M")
 @app.template_filter("vol")
 def format_volume(v):
-    if v >= 1_000_000_000: return f"{v/1_000_000_000:.1f}B"
-    if v >= 1_000_000:     return f"{v/1_000_000:.1f}M"
-    if v >= 1_000:         return f"{v/1_000:.1f}K"
+    """Jinja2 filter: 54200000 → '54.2M'."""
+    if v >= 1_000_000_000:
+        return f"{v/1_000_000_000:.1f}B"
+    if v >= 1_000_000:
+        return f"{v/1_000_000:.1f}M"
+    if v >= 1_000:
+        return f"{v/1_000:.1f}K"
     return str(int(v))
 
 
@@ -142,70 +157,93 @@ def format_money(v):
     return f"{v:,.0f}"
 
 
+def _load_dashboard_context():
+    """Shared data assembly for home page and /api/market-data."""
+    market_data_all = fetch_market_data(get_fetch_tickers())
+    watchlist_rows, _ = _split_watchlist_rows(market_data_all)
+    mover_groups, pred_groups = build_groups(watchlist_rows)
+    funds = build_funds(market_data_all)
+    return watchlist_rows, mover_groups, pred_groups, funds
+
+
 @app.route("/")
 def home():
     """Main dashboard — fetches live data and renders the full landing screen."""
-    market_data = fetch_market_data(WATCHLIST)
-    mover_groups, pred_groups = build_groups(market_data)
-    funds = build_funds(market_data)
+    watchlist_rows, mover_groups, pred_groups, funds = _load_dashboard_context()
 
     return render_template(
         "landing-screen.html",
-        watchlist=market_data,
+        watchlist=watchlist_rows,
         funds=funds,
         moverGroups=mover_groups,
         predGroups=pred_groups,
-        watchCount=len(market_data),
+        watchCount=len(watchlist_rows),
         fundCount=len(funds),
         theme="light",
-        now=datetime.now().strftime("%-I:%M %p"),  # e.g. "2:34 PM"
+        now=datetime.now().strftime("%-I:%M %p"),
     )
 
 
 @app.route("/api/market-data")
 def api_market_data():
-    """JSON endpoint polled by the frontend every 60s to refresh data without a page reload."""
-    market_data = fetch_market_data(WATCHLIST)
-    mover_groups, pred_groups = build_groups(market_data)
+    """JSON endpoint for future live polling (no full page reload)."""
+    watchlist_rows, mover_groups, pred_groups, _funds = _load_dashboard_context()
 
     return jsonify({
-        "watchlist": market_data,
+        "watchlist": watchlist_rows,
         "moverGroups": mover_groups,
         "predGroups": pred_groups,
     })
 
 
+@app.route("/api/watchlist", methods=["GET"])
+def api_watchlist_get():
+    return jsonify({"tickers": load_watchlist()})
+
+
+@app.route("/api/watchlist", methods=["POST"])
+def api_watchlist_add():
+    body = request.get_json(silent=True) or {}
+    tickers = body.get("tickers")
+    try:
+        result = add_tickers(tickers)
+        return jsonify(result)
+    except WatchlistError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+
+@app.route("/api/watchlist", methods=["DELETE"])
+def api_watchlist_remove():
+    body = request.get_json(silent=True) or {}
+    ticker = body.get("ticker")
+    try:
+        tickers = remove_ticker(ticker)
+        return jsonify({"tickers": tickers})
+    except WatchlistError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+
+@app.route("/api/tickers/search")
+def api_tickers_search():
+    q = request.args.get("q", "")
+    results = search_tickers(q, watchlist_symbols=load_watchlist())
+    return jsonify({"results": results})
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
-    """Legacy single-ticker prediction endpoint used by the original index.html form."""
+    """Legacy single-ticker prediction endpoint used by index.html."""
     ticker = request.form.get("ticker")
     prediction, confidence = predict_stock(ticker)
     direction = "Up" if prediction[0] == 1 else "Down"
     confidence_pct = round(float(confidence[0].max()) * 100, 2)
-    return render_template("index.html", ticker=ticker, direction=direction, confidence=confidence_pct)
+    return render_template(
+        "index.html",
+        ticker=ticker,
+        direction=direction,
+        confidence=confidence_pct,
+    )
 
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
-
-# =============================================================================
-# SUMMARY — app.py
-# =============================================================================
-# This is the Flask application entry point for Siska Terminal.
-#
-# Constants:
-#   WATCHLIST   — 15 tickers displayed in the main table
-#   FUNDS       — 2 hardcoded fund definitions
-#
-# Helper functions:
-#   build_groups(market_data)  — sorts tickers into gainers/losers/volume and
-#                                up/down prediction groups for the right panel
-#   build_funds(market_data)   — joins live data onto fund holdings, computes
-#                                avg confidence and majority direction per fund
-#   format_volume(v)           — Jinja2 filter, formats large ints as 54.2M etc.
-#
-# Routes:
-#   GET  /                  — renders landing-screen.html with all live data
-#   GET  /api/market-data   — returns JSON; polled by JS every 60s for live updates
-#   POST /predict           — legacy single-ticker form endpoint
-# =============================================================================
