@@ -109,10 +109,10 @@
     {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
     <div class="row watchlist-grid table-row{% if fund_id %} fund-holding-row{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
       <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}{{ stock.ticker }}</span>
-      <span class="num">${{ "%.2f"|format(stock.price) }}</span>
-      <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
-      <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
-      <span class="num cell-muted">{{ stock.volume|vol }}</span>
+      <span class="num" data-field="price">${{ "%.2f"|format(stock.price) }}</span>
+      <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}" data-field="pct_change">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
+      <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}" data-field="change">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
+      <span class="num cell-muted" data-field="volume">{{ stock.volume|vol }}</span>
       <div class="day-chart" aria-hidden="true"></div>
       <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
@@ -124,13 +124,13 @@
       <span class="pred-cell">
         <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
       </span>
-      <span class="num cell-muted">{{ stock.updated_at }}</span>
+      <span class="num cell-muted" data-field="updated_at">{{ stock.updated_at }}</span>
       {{ vs_index_cell(stock) }}
       <span class="num pos-cell pos-shares{% if fund_id %} fund-pos-cell{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>{% if stock.shares is not none %}{{ "%.4g"|format(stock.shares) }}{% else %}<span class="na pos-add-hint">+ Add</span>{% endif %}</span>
       <span class="num pos-cell pos-avgcost{% if fund_id %} fund-pos-cell{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>{% if stock.avg_cost is not none %}${{ "%.2f"|format(stock.avg_cost) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num">{% if stock.mkt_value is not none %}${{ "%.2f"|format(stock.mkt_value) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num {% if stock.gain_loss is not none %}{% if stock.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(stock.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num {% if stock.return_pct is not none %}{% if stock.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(stock.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.mkt_value is not none %}<span data-field="mkt_value">${{ "%.2f"|format(stock.mkt_value) }}</span>{% else %}<span class="na" data-field="mkt_value">—</span>{% endif %}</span>
+      <span class="num {% if stock.gain_loss is not none %}{% if stock.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}" data-field="gain_loss">{% if stock.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(stock.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num {% if stock.return_pct is not none %}{% if stock.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}" data-field="return_pct">{% if stock.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(stock.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="col-action">
         {% if not fund_id %}
         <button type="button" class="row-action-btn remove-ticker-btn" data-ticker="{{ stock.ticker }}" aria-label="Remove {{ stock.ticker }}">×</button>

@@ -4,6 +4,7 @@
 
 from utils.db import commit_with_retry, get_connection, utc_now_iso
 from utils.market import clear_cache
+from utils.symbols import etf_for_index, index_rejection_message, is_index_symbol
 from utils.ticker_search import lookup_quote_type
 
 MAX_TICKERS = 25
@@ -61,6 +62,52 @@ def load_watchlist_quote_types(user_id):
         row["symbol"]: (row["quote_type"] or "EQUITY").upper()
         for row in rows
     }
+
+
+def upgrade_index_symbols(user_id):
+    """
+    Replace legacy index tickers (^GSPC, ^DJI) with ETF proxies so prices
+    show tradable levels (~$746 for SPY) instead of index points (~7,500).
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, symbol FROM watchlist WHERE user_id = ? ORDER BY added_at ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+        if not rows:
+            return
+
+        current = [row["symbol"] for row in rows]
+        current_set = set(current)
+        changed = False
+
+        for row in rows:
+            sym = row["symbol"]
+            if not is_index_symbol(sym):
+                continue
+
+            etf = etf_for_index(sym)
+            if not etf:
+                continue
+
+            if etf in current_set and etf != sym:
+                conn.execute("DELETE FROM watchlist WHERE id = ?", (row["id"],))
+                current_set.discard(sym)
+                changed = True
+                continue
+
+            quote_type = lookup_quote_type(etf)
+            conn.execute(
+                "UPDATE watchlist SET symbol = ?, quote_type = ? WHERE id = ?",
+                (etf, quote_type, row["id"]),
+            )
+            current_set.discard(sym)
+            current_set.add(etf)
+            changed = True
+
+        if changed:
+            commit_with_retry(conn)
+            clear_cache()
 
 
 def ensure_watchlist_quote_types(user_id):
@@ -149,6 +196,10 @@ def add_tickers(user_id, symbols, quote_types=None, trusted_from_search=True):
             if sym in current_set:
                 reason = "Already in watchlist" if sym in current else "Duplicate in request"
                 skipped.append({"symbol": sym, "reason": reason})
+                continue
+
+            if is_index_symbol(sym):
+                failed.append({"symbol": sym, "reason": index_rejection_message(sym)})
                 continue
 
             if len(current) + len(added) >= MAX_TICKERS:

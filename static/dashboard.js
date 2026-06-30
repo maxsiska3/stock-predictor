@@ -699,6 +699,112 @@
 
 
   /* ══════════════════════════════════════════════════════════
+     LIVE PRICE POLLING (watchlist + fund holdings)
+  ══════════════════════════════════════════════════════════ */
+  (function initMarketPoll() {
+    var POLL_MS = 60000;
+
+    function formatVolume(v) {
+      v = Number(v);
+      if (!isFinite(v)) return "—";
+      if (v >= 1e9) return (v / 1e9).toFixed(1) + "B";
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + "K";
+      return String(Math.round(v));
+    }
+
+    function setSignedMoney(el, value, upClass, downClass) {
+      if (!el) return;
+      var n = Number(value);
+      if (!isFinite(n)) return;
+      var sign = n >= 0 ? "+" : "-";
+      el.textContent = sign + "$" + Math.abs(n).toFixed(2);
+      el.classList.remove("cell-up", "cell-down");
+      el.classList.add(n >= 0 ? upClass : downClass);
+    }
+
+    function setSignedPct(el, value) {
+      if (!el) return;
+      var n = Number(value);
+      if (!isFinite(n)) return;
+      var sign = n >= 0 ? "+" : "-";
+      el.textContent = sign + Math.abs(n).toFixed(2) + "%";
+      el.classList.remove("cell-up", "cell-down");
+      el.classList.add(n >= 0 ? "cell-up" : "cell-down");
+    }
+
+    function updateRow(row, stock) {
+      var priceEl = row.querySelector('[data-field="price"]');
+      if (priceEl) priceEl.textContent = "$" + Number(stock.price).toFixed(2);
+
+      setSignedPct(row.querySelector('[data-field="pct_change"]'), stock.pct_change);
+      setSignedMoney(row.querySelector('[data-field="change"]'), stock.change, "cell-up", "cell-down");
+
+      var volEl = row.querySelector('[data-field="volume"]');
+      if (volEl) volEl.textContent = formatVolume(stock.volume);
+
+      var updatedEl = row.querySelector('[data-field="updated_at"]');
+      if (updatedEl && stock.updated_at) updatedEl.textContent = stock.updated_at;
+
+      var vsCell = row.querySelector(".vs-index-cell");
+      if (vsCell) {
+        if (stock.vs_spy != null) vsCell.setAttribute("data-vs-spy", stock.vs_spy);
+        if (stock.vs_dow != null) vsCell.setAttribute("data-vs-dow", stock.vs_dow);
+        if (stock.vs_nasdaq != null) vsCell.setAttribute("data-vs-nasdaq", stock.vs_nasdaq);
+      }
+
+      var mktEl = row.querySelector('[data-field="mkt_value"]');
+      if (mktEl) {
+        if (stock.mkt_value != null) {
+          mktEl.textContent = "$" + Number(stock.mkt_value).toFixed(2);
+          mktEl.classList.remove("na");
+        }
+      }
+
+      var glEl = row.querySelector('[data-field="gain_loss"]');
+      if (glEl && stock.gain_loss != null) {
+        var gl = Number(stock.gain_loss);
+        var glSign = gl >= 0 ? "+" : "";
+        glEl.textContent = glSign + "$" + Math.abs(gl).toFixed(2);
+        glEl.classList.remove("cell-up", "cell-down");
+        glEl.classList.add(gl >= 0 ? "cell-up" : "cell-down");
+      }
+
+      var retEl = row.querySelector('[data-field="return_pct"]');
+      if (retEl && stock.return_pct != null) {
+        var rp = Number(stock.return_pct);
+        var rpSign = rp >= 0 ? "+" : "";
+        retEl.textContent = rpSign + Math.abs(rp).toFixed(2) + "%";
+        retEl.classList.remove("cell-up", "cell-down");
+        retEl.classList.add(rp >= 0 ? "cell-up" : "cell-down");
+      }
+    }
+
+    function poll() {
+      if (document.hidden) return;
+      fetch("/api/market-data")
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.data || !res.data.watchlist) return;
+          var byTicker = {};
+          res.data.watchlist.forEach(function (s) { byTicker[s.ticker] = s; });
+          document.querySelectorAll(".table-row[data-ticker]").forEach(function (row) {
+            var ticker = row.getAttribute("data-ticker");
+            if (byTicker[ticker]) updateRow(row, byTicker[ticker]);
+          });
+          if (window.applyDashboardBenchmark) {
+            var sel = document.querySelector(".benchmark-select");
+            if (sel) window.applyDashboardBenchmark(sel.value);
+          }
+        })
+        .catch(function () { /* silent — next poll retries */ });
+    }
+
+    setInterval(poll, POLL_MS);
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════
      PROFILE MENU
   ══════════════════════════════════════════════════════════ */
   (function initProfileMenu() {
