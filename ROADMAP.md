@@ -22,17 +22,17 @@ Kouros is a multi-user hosted dashboard with per-account data in SQLite.
 | **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching, SQLite WAL + write retries, ticker search HTTP fallback on Render. |
 | **Design** | Light / Dark / Kouros themes; shared 25-column grid; page scroll with unified horizontal scroll (`dashboard-hscroll-track`). |
 
-**Not yet:** detail screens, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
+**Not yet:** detail screens, predictions screen, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
 
 ---
 
-## Phase 2 — Detail Screens
+## Phase 0 — Detail Screens
 
 **Goal:** clicking a stock or fund opens a rich detail view instead of doing nothing.
 
 ---
 
-### 2.1 — Stock Detail Screen
+### 0.1 — Stock Detail Screen
 Route: `/stock/<ticker>`
 
 Clicking any ticker in the watchlist or funds table navigates here.
@@ -73,13 +73,13 @@ Clicking any ticker in the watchlist or funds table navigates here.
 **New data needed:**
 - Intraday chart data (already fetched, just not rendered)
 - Historical chart data (already fetched for indicators)
-- Prediction history log (see Phase 3.1)
+- Prediction history log (see Phase 1.7)
 - Earnings date — `yf.Ticker(symbol).calendar` (easy)
 - Per-ticker notes — `notes` DB table: user_id, symbol, content, updated_at
 
 ---
 
-### 2.2 — Fund Detail Screen
+### 0.2 — Fund Detail Screen
 Route: `/fund/<fund_id>`
 
 Clicking a fund summary row navigates here.
@@ -112,7 +112,7 @@ Clicking a fund summary row navigates here.
 
 ---
 
-## Phase 3 — Model Improvement
+## Phase 1 — Model Improvement
 
 **Goal:** increase overall prediction accuracy from the current 48.5% baseline toward a consistent 55–57%, and surface honest accuracy metrics to users.
 
@@ -136,7 +136,7 @@ Key observations:
 
 ---
 
-### 3.1 — Confidence Threshold Filter (quick win)
+### 1.1 — Confidence Threshold Filter (quick win)
 
 Stop showing or logging predictions below 55% confidence. The 50–55% bucket is anti-correlated with actual outcomes and is the single biggest drag on overall accuracy.
 
@@ -157,7 +157,7 @@ On the dashboard: show a neutral `—` badge instead of a direction when confide
 
 ---
 
-### 3.2 — Probability Calibration
+### 1.2 — Probability Calibration
 
 The 65%+ bucket performing *worse* than 60–65% means the model's raw probability outputs don't reflect true likelihood. Apply `CalibratedClassifierCV` from scikit-learn after training so that a 65% confidence score actually corresponds to ~65% accuracy.
 
@@ -173,7 +173,7 @@ This is a wrapper around the existing model — no architectural changes needed.
 
 ---
 
-### 3.3 — Better Features
+### 1.3 — Better Features
 
 Current features are all price/volume derived (RSI, MACD, Bollinger, volatility). These are correlated with each other and well-known — the market has largely priced in what they signal individually.
 
@@ -192,7 +192,7 @@ None of these require paid data — all derivable from yfinance history already 
 
 ---
 
-### 3.4 — Try XGBoost / LightGBM
+### 1.4 — Try XGBoost / LightGBM
 
 RandomForest is a solid baseline but XGBoost and LightGBM typically outperform it on tabular financial data with the same feature set. Replacing the model usually yields +2–4% accuracy with minimal code changes.
 
@@ -204,7 +204,7 @@ Benchmark XGBoost, LightGBM, and the existing RandomForest side-by-side on the s
 
 ---
 
-### 3.5 — Expand Training Data
+### 1.5 — Expand Training Data
 
 More tickers + more years = better generalization, less overfitting.
 
@@ -217,7 +217,7 @@ A model trained on one person's watchlist will overfit to those specific stocks'
 
 ---
 
-### 3.6 — Walk-Forward Validation
+### 1.6 — Walk-Forward Validation
 
 Use time-based train/test splits to verify improvements are real and not artifacts of the data split.
 
@@ -232,17 +232,22 @@ Average test accuracy across all windows = realistic expected performance.
 
 ---
 
-### 3.7 — Prediction History Log
+### 1.7 — Prediction History Log
 
 Every trading day, log the model's predictions for each user's watchlist. At market close, compare to actual price movement and record correct/incorrect.
 
-**New DB table:** `prediction_log` — user_id, symbol, date, predicted_direction, confidence, actual_direction, was_correct
+**New DB table:** `prediction_log` — user_id, symbol, date, predicted_direction, confidence, actual_direction, actual_pct_change, open_price, close_price, was_correct, miss_magnitude, miss_tier
+
+- `actual_pct_change` — signed close-to-close % move on the predicted day
+- `miss_magnitude` — when wrong, absolute % move in the opposite direction (0 when correct)
+- `miss_tier` — `correct` | `near` | `soft` | `hard` (see Phase 2.2)
 
 **Background job (APScheduler):**
 - 9:25am ET — log today's predictions before open
 - 4:05pm ET — resolve yesterday's predictions against closing prices
 
 **What this powers:**
+- Predictions screen (Phase 2) — history table, miss severity, calibration charts
 - Live accuracy stats on the stock detail screen
 - Confidence trend chart (14-day rolling confidence per ticker)
 - Daily Digest "yesterday's results" section
@@ -250,7 +255,7 @@ Every trading day, log the model's predictions for each user's watchlist. At mar
 
 ---
 
-### 3.8 — Sector-Specific Models (longer term)
+### 1.8 — Sector-Specific Models (longer term)
 
 Tech stocks have different volatility profiles than financials or healthcare. A single model trained on everything compromises on all sectors. Eventually train one model per sector and route each ticker to its sector model at inference time.
 
@@ -265,7 +270,7 @@ Tech stocks have different volatility profiles than financials or healthcare. A 
 4. Try XGBoost/LightGBM            ← benchmark vs RandomForest
 5. Expand training data (S&P 500)  ← biggest generalization gain
 6. Walk-forward validation         ← verify improvements are real
-7. Prediction history log          ← powers accuracy display in app
+7. Prediction history log          ← powers Predictions screen (Phase 2)
 8. Sector-specific models          ← longer term
 ```
 
@@ -273,35 +278,145 @@ Tech stocks have different volatility profiles than financials or healthcare. A 
 
 ---
 
-## Phase 4 — ML Differentiation (App Features)
+## Phase 2 — Predictions Screen
 
-**Goal:** surface the model's accuracy and history so predictions feel trustworthy, not just decorative.
+**Goal:** a dedicated screen for model performance — not just ✓/✗, but *how* right or wrong the model was. Users should see when a miss was noise (flat day, −0.3%) vs a real whiff (−3%).
 
----
+Route: `/predictions`
 
-### 4.1 — Confidence Trend (Stock Detail)
-On the stock detail screen, a small 14-day line chart showing the model's daily confidence score for that ticker. Helps users see if the model is consistently strong or noisy on a specific stock. Powered by the prediction history log (Phase 3.7).
-
----
-
-### 4.2 — Accuracy Card on Dashboard
-A summary card showing overall model accuracy across the user's watchlist — total predictions, hit rate this month, and a streak indicator. Makes the model's performance visible and builds trust.
+Accessible from header nav (tab: **Predictions**). Scoped to the user's watchlist and/or funds (same scope pattern as sidebar). Requires prediction history log (Phase 1.7).
 
 ---
 
-### 4.4 — Personal Notes Per Ticker
-A small editable text area on each stock detail screen. Users write their own thesis, reminders, or observations. Saves to DB on blur.
+### 2.1 — Screen layout
 
 ```
-"Bought on earnings dip. Watching for recovery above $190.
-Earnings Jul 24 — model has been right 4/4 on AAPL this month."
+┌──────────────────────────────────────────────────────────────────┐
+│  PREDICTIONS              [Watchlist ▾]  [Funds ▾]  [Last 30d ▾]   │
+├──────────────────────────────────────────────────────────────────┤
+│  SUMMARY                                                           │
+│  Hit rate: 62.1% (38/61)     vs random (50%): +12.1%              │
+│  Resolved: 61  ·  Pending today: 8  ·  Streak: 3 correct         │
+│  When wrong — avg miss: 0.8%  ·  Near/soft misses: 18 (41%)      │
+│  When right — avg move: 1.1%  ·  Avg conf (hits): 61%            │
+├──────────────────────────────────────────────────────────────────┤
+│  CALIBRATION                    │  BY SECTOR (hit rate)           │
+│  Conf bucket → actual hit rate  │  Technology    58%              │
+│  55–60%  ████████  58%          │  Financials    71%              │
+│  60–65%  ██████████  64%        │  Healthcare    50%              │
+│  65%+    ██████  52%  ⚠ overconf│                                 │
+├──────────────────────────────────────────────────────────────────┤
+│  BEST / WORST ON YOUR LIST                                        │
+│  Best:  AAPL 8/10 (80%)   Worst: INTC 2/9 (22%)                  │
+├──────────────────────────────────────────────────────────────────┤
+│  HISTORY                                    [Sort: date ▾]        │
+│  Date      Ticker  Pred  Conf   Actual    Result    Miss           │
+│  Jun 27    AAPL    ▲    88%    +1.20%    ✓ hit     —              │
+│  Jun 27    INTC    ▼    79%    −0.42%    ✗ wrong   soft −0.42%   │
+│  Jun 26    NVDA    ▲    91%    −2.14%    ✗ wrong   hard −2.14%   │
+│  Jun 26    JPM     ▲    56%    +0.08%    ✗ wrong   near +0.08%   │
+│  Jun 25    AMD     ▼    83%    −1.80%    ✓ hit     —              │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-No other free tracker has this tied to ML signals.
+Click a row → stock detail screen (Phase 0.1) with that ticker's prediction history pre-expanded.
 
 ---
 
-## Phase 5 — Daily Digest Screen
+### 2.2 — Miss severity (core metric)
+
+Direction alone is too blunt. A wrong call on a flat day is different from a wrong call into a big move.
+
+**Definitions** (computed at resolve time from `actual_pct_change`):
+
+| Tier | Condition | Example | UX |
+|------|-----------|---------|-----|
+| **Hit** | Predicted direction matches actual (up if Δ>0, down if Δ<0) | Pred ▲, closed +1.2% | Green ✓ |
+| **Near miss** | Wrong direction but \|actual_pct_change\| < 0.25% | Pred ▲, closed −0.08% | Amber — "flat day noise" |
+| **Soft miss** | Wrong, 0.25% ≤ \|actual\| < 1.0% | Pred ▲, closed −0.42% | Orange — "close call" |
+| **Hard miss** | Wrong, \|actual\| ≥ 1.0% | Pred ▲, closed −2.14% | Red — "real miss" |
+
+```python
+def classify_miss(predicted_up: bool, actual_pct: float) -> tuple[str, float]:
+  actual_up = actual_pct > 0
+  if actual_up == predicted_up:
+      return "correct", 0.0
+  magnitude = abs(actual_pct)
+  if magnitude < 0.25:
+      return "near", magnitude
+  if magnitude < 1.0:
+      return "soft", magnitude
+  return "hard", magnitude
+```
+
+**Summary stats to surface:**
+- % of wrong calls that were near/soft vs hard (shows if misses are mostly noise)
+- Avg `miss_magnitude` when wrong (overall and by confidence bucket)
+- "Forgiveness score" — hit rate treating near misses as half-correct (optional toggle)
+
+---
+
+### 2.3 — Other important metrics
+
+**Accuracy & baseline**
+- Hit rate: 7d / 30d / 90d / all time
+- vs random (50%) and vs "always predict up" baseline
+- Count of predictions shown vs resolved (excludes below-confidence threshold)
+- Current streak (consecutive hits or misses)
+
+**Confidence & calibration**
+- Hit rate by confidence bucket (55–60, 60–65, 65+)
+- Avg confidence when correct vs when wrong
+- Calibration gap — e.g. "65% conf bucket actually hits 52%" (flags overconfidence)
+- Optional: Brier score or log loss over resolved predictions (advanced, collapsible)
+
+**Magnitude when right**
+- Avg \|actual_pct_change\| on hits (did the model nail big days or only tiny moves?)
+- Split: avg move when predicted ▲ and right vs predicted ▼ and right
+
+**Per ticker (on user's list)**
+- Hit rate per symbol (min N predictions to show)
+- Best / worst tickers for the model
+- Avg miss severity per ticker (some names may be noisier)
+
+**Per sector**
+- Hit rate and avg miss magnitude grouped by sector
+- Surfaces where the single global model struggles
+
+**Direction bias**
+- % of predictions that are ▲ vs ▼
+- False positive rate for UP calls vs DOWN calls
+- Helps spot systematic bullish/bearish skew
+
+**Filters & controls**
+- Scope: watchlist | funds | all symbols user tracks
+- Date range: 7d / 30d / 90d / custom
+- Filter by: tier (hits only, hard misses only), confidence min, ticker, sector
+- Sort history by: date, miss magnitude, confidence
+
+---
+
+### 2.4 — API & files
+
+- `GET /api/predictions/summary` — aggregates for summary cards + calibration
+- `GET /api/predictions/history` — paginated log with filters
+- `utils/prediction_log.py` — log, resolve, aggregate queries
+- `templates/predictions-screen.html`, `static/predictions.js`
+
+Depends on Phase 1.7 (prediction log) and benefits from Phase 1.1 (≥55% confidence threshold — keeps the history signal clean).
+
+---
+
+### 2.5 — Stock detail cross-links
+
+- **Confidence trend** — 14-day line chart of daily confidence for that ticker (from prediction log)
+- **Personal notes** — editable thesis field on stock detail; saves on blur (`notes` table: user_id, symbol, content, updated_at)
+
+These stay on the stock detail screen (Phase 0.1) but deep-link from Predictions history rows.
+
+---
+
+## Phase 3 — Daily Digest Screen
 
 **Goal:** one screen that answers "what do I need to know today?" — the model's morning briefing for your portfolio.
 
@@ -355,14 +470,14 @@ Accessible from the header nav. Updates once per day (or live from cached data d
 | Section | Source |
 |---------|--------|
 | Today's signals | Already computed in sidebar |
-| Yesterday's results | Prediction history log (Phase 3.7) |
+| Yesterday's results | Prediction history log (Phase 1.7) |
 | Your portfolio movers | Already computed |
 | Earnings this week | `yf.Ticker().calendar` — new but easy |
 | Market Pulse | SPY/QQQ/DIA — 3 extra tickers in fetch |
 
 ---
 
-## Phase 6 — Sidebar Upgrade
+## Phase 4 — Sidebar Upgrade
 
 Replace current watchlist-only movers with a more useful layout.
 
@@ -388,7 +503,7 @@ Replace current watchlist-only movers with a more useful layout.
 └──────────────────────┘
 ```
 
-### 6.1 — Movers & Predictions scope dropdown (planned)
+### 4.1 — Movers & Predictions scope dropdown (planned)
 Today the sidebar always uses **your watchlist**. Add a dropdown on the Movers & Predictions panel:
 
 | Option | What it shows |
@@ -405,7 +520,7 @@ Market Pulse (3 index numbers) gives macro context without competing with Yahoo 
 
 ---
 
-## Phase 7 — Polish & Alerts
+## Phase 5 — Polish & Alerts
 
 Once the core is solid:
 
@@ -420,34 +535,36 @@ Once the core is solid:
 ## Full Build Order
 
 ```
-Phase 2 — Detail Screens
-  2.1  Stock detail screen
-  2.2  Fund detail screen
+Phase 0 — Detail Screens
+  0.1  Stock detail screen
+  0.2  Fund detail screen
 
-Phase 3 — Model Improvement
-  3.1  Confidence threshold filter (≥55% only)
-  3.2  Probability calibration
-  3.3  Better features (earnings proximity, volume anomaly, MA gaps, etc.)
-  3.4  Try XGBoost / LightGBM
-  3.5  Expand training data (S&P 500, 2010–present)
-  3.6  Walk-forward validation
-  3.7  Prediction history log (daily background job)
-  3.8  Sector-specific models (longer term)
+Phase 1 — Model Improvement
+  1.1  Confidence threshold filter (≥55% only)
+  1.2  Probability calibration
+  1.3  Better features (earnings proximity, volume anomaly, MA gaps, etc.)
+  1.4  Try XGBoost / LightGBM
+  1.5  Expand training data (S&P 500, 2010–present)
+  1.6  Walk-forward validation
+  1.7  Prediction history log (daily background job)
+  1.8  Sector-specific models (longer term)
 
-Phase 4 — ML Differentiation (App Features)
-  4.1  Confidence trend chart (stock detail screen)
-  4.2  Accuracy card on dashboard
-  4.3  Personal notes per ticker
+Phase 2 — Predictions Screen
+  2.1  Layout — summary, calibration, history table
+  2.2  Miss severity tiers (near / soft / hard)
+  2.3  Metrics — calibration, per-ticker, sector, direction bias
+  2.4  API + prediction_log aggregates
+  2.5  Stock detail cross-links (confidence trend, notes)
 
-Phase 5 — Daily Digest Screen
+Phase 3 — Daily Digest Screen
   Earnings calendar + prediction results + movers + market pulse
 
-Phase 6 — Sidebar Upgrade
-  6.1  Movers & predictions scope dropdown (watchlist | funds)
-  6.2  Market Pulse (SPY / QQQ / DIA)
-  6.3  Earnings this week (from active scope)
+Phase 4 — Sidebar Upgrade
+  4.1  Movers & predictions scope dropdown (watchlist | funds)
+  4.2  Market Pulse (SPY / QQQ / DIA)
+  4.3  Earnings this week (from active scope)
 
-Phase 7 — Polish
+Phase 5 — Polish
   Price alerts
   Sparklines
   Live polling
@@ -515,4 +632,4 @@ Kouros is a personal portfolio tracker with experimental ML-powered signals. Pre
 
 ---
 
-*Last updated: June 30, 2026*
+*Last updated: June 30, 2026 — Phases renumbered 0–5.*

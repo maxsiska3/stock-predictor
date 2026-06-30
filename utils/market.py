@@ -28,6 +28,8 @@ _YF_BATCH_SIZE = 5
 _YF_PAUSE_SEC = 0.75
 _YF_RATE_LIMIT_PAUSE = 8.0
 _info_cache = {}
+_INFO_CACHE_TTL = timedelta(minutes=30)
+_INFO_FAIL_TTL = timedelta(minutes=2)
 
 
 def clear_cache(tickers=None):
@@ -102,13 +104,33 @@ def _etf_display_fields(info, eps, beta, sector):
 
 
 def _ticker_info(ticker):
-    if ticker in _info_cache:
-        return _info_cache[ticker]
-    try:
-        info = yf.Ticker(ticker).info or {}
-    except Exception:
-        info = {}
-    _info_cache[ticker] = info
+    """Fetch fundamentals with cache, pause, and retry — Yahoo rate-limits .info on Render."""
+    now = datetime.now()
+    cached = _info_cache.get(ticker)
+    if cached:
+        age = now - cached["at"]
+        if cached.get("info") and age < _INFO_CACHE_TTL:
+            return cached["info"]
+        if not cached.get("info") and age < _INFO_FAIL_TTL:
+            return {}
+
+    info = {}
+    for attempt in range(3):
+        try:
+            if attempt:
+                time.sleep(_YF_RATE_LIMIT_PAUSE)
+            else:
+                _yf_pause(0.5)
+            fetched = yf.Ticker(ticker).info or {}
+            if fetched:
+                info = fetched
+                break
+        except Exception as exc:
+            logger.warning("ticker info failed for %s (attempt %d): %s", ticker, attempt + 1, exc)
+            if _is_rate_limited(exc):
+                time.sleep(_YF_RATE_LIMIT_PAUSE)
+
+    _info_cache[ticker] = {"info": info, "at": now}
     return info
 
 
@@ -150,11 +172,12 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
 
     # Use previous close from daily history; fall back to yfinance info when
     # only one trading day is available (Mondays, post-holiday, etc.)
+    info = None
     if ticker_daily is not None and len(ticker_daily) >= 2:
         prev_close = _scalar(ticker_daily["Close"].iloc[-2])
     else:
-        info_fallback = _ticker_info(ticker)
-        prev_close_val = info_fallback.get("regularMarketPreviousClose")
+        info = _ticker_info(ticker)
+        prev_close_val = info.get("regularMarketPreviousClose")
         if prev_close_val is None:
             raise ValueError(f"No previous close available for {ticker}")
         prev_close = float(prev_close_val)
@@ -186,11 +209,12 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         volatility = _safe_float(last["volatility"], 4)
         macd = _safe_float(last["macd"], 2)
 
-    info = _ticker_info(ticker)
+    if info is None:
+        info = _ticker_info(ticker)
     quote_type = (info.get("quoteType") or "EQUITY").upper()
-    sector = info.get("sector")
-    p_e = _safe_float(info.get("trailingPE"), 1)
-    eps = _safe_float(info.get("trailingEps"), 2)
+    sector = info.get("sector") or info.get("industry")
+    p_e = _safe_float(info.get("trailingPE") or info.get("forwardPE"), 1)
+    eps = _safe_float(info.get("trailingEps") or info.get("epsTrailingTwelveMonths"), 2)
     beta = _safe_float(info.get("beta"), 2)
 
     eps_note, beta_note, sector_display = _etf_display_fields(info, eps, beta, sector)
