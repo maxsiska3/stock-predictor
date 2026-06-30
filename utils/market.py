@@ -4,6 +4,8 @@
 # Per-ticker cache (60s TTL) so different users can share cached rows.
 
 import logging
+import os
+import threading
 import time
 import traceback
 
@@ -23,13 +25,18 @@ logger = logging.getLogger(__name__)
 _cache = {"rows": {}, "updated_at": {}}
 _CACHE_TTL = timedelta(seconds=60)
 
-# Throttle Yahoo Finance on Render — batch + per-ticker ML used to hammer the API at boot.
-_YF_BATCH_SIZE = 5
-_YF_PAUSE_SEC = 0.75
-_YF_RATE_LIMIT_PAUSE = 8.0
+# Render shares egress IPs — Yahoo rate-limits aggressively; pace serially.
+_HOSTED = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_PATH", "").startswith("/data/"))
+_YF_BATCH_SIZE = 1 if _HOSTED else 5
+_YF_PAUSE_SEC = 2.5 if _HOSTED else 0.75
+_YF_RATE_LIMIT_PAUSE = 15.0 if _HOSTED else 8.0
+_SKIP_INTRADAY = _HOSTED
 _info_cache = {}
 _INFO_CACHE_TTL = timedelta(minutes=30)
-_INFO_FAIL_TTL = timedelta(minutes=2)
+_INFO_FAIL_TTL = timedelta(minutes=5 if _HOSTED else 2)
+
+_fetch_lock = threading.Lock()
+_rate_limited_until = 0.0
 
 
 def clear_cache(tickers=None):
@@ -103,8 +110,23 @@ def _etf_display_fields(info, eps, beta, sector):
     return eps_note, beta_note, sector_display
 
 
+def _in_rate_limit_cooldown():
+    return time.time() < _rate_limited_until
+
+
+def _set_rate_limit_cooldown(seconds=None):
+    global _rate_limited_until
+    pause = seconds if seconds is not None else _YF_RATE_LIMIT_PAUSE * 2
+    _rate_limited_until = time.time() + pause
+    logger.warning("yfinance cooldown for %.0fs", pause)
+
+
 def _ticker_info(ticker):
     """Fetch fundamentals with cache, pause, and retry — Yahoo rate-limits .info on Render."""
+    if _in_rate_limit_cooldown():
+        cached = _info_cache.get(ticker)
+        return (cached or {}).get("info") or {}
+
     now = datetime.now()
     cached = _info_cache.get(ticker)
     if cached:
@@ -115,12 +137,13 @@ def _ticker_info(ticker):
             return {}
 
     info = {}
-    for attempt in range(3):
+    max_attempts = 2 if _HOSTED else 3
+    for attempt in range(max_attempts):
         try:
             if attempt:
                 time.sleep(_YF_RATE_LIMIT_PAUSE)
             else:
-                _yf_pause(0.5)
+                _yf_pause(1.0 if _HOSTED else 0.5)
             fetched = yf.Ticker(ticker).info or {}
             if fetched:
                 info = fetched
@@ -128,7 +151,8 @@ def _ticker_info(ticker):
         except Exception as exc:
             logger.warning("ticker info failed for %s (attempt %d): %s", ticker, attempt + 1, exc)
             if _is_rate_limited(exc):
-                time.sleep(_YF_RATE_LIMIT_PAUSE)
+                _set_rate_limit_cooldown()
+                break
 
     _info_cache[ticker] = {"info": info, "at": now}
     return info
@@ -144,21 +168,33 @@ def _is_rate_limited(exc):
 
 
 def _yf_download(tickers, **kwargs):
-    """yf.download with a short pause and one backoff retry on rate limits."""
+    """yf.download with pacing, no parallel threads, and backoff on rate limits."""
+    kwargs.setdefault("threads", False)
     last_exc = None
     for attempt in range(2):
         try:
             result = yf.download(tickers, progress=False, **kwargs)
+            if isinstance(tickers, str):
+                empty = result is None or result.empty
+            else:
+                empty = result is None or result.empty
+            if empty and attempt == 0:
+                _set_rate_limit_cooldown()
+                time.sleep(_YF_RATE_LIMIT_PAUSE)
+                continue
             _yf_pause()
             return result
         except Exception as exc:
             last_exc = exc
-            if attempt == 0 and _is_rate_limited(exc):
-                logger.warning("yfinance rate limited — backing off %.0fs", _YF_RATE_LIMIT_PAUSE)
-                time.sleep(_YF_RATE_LIMIT_PAUSE)
-                continue
+            if _is_rate_limited(exc):
+                _set_rate_limit_cooldown()
+                if attempt == 0:
+                    time.sleep(_YF_RATE_LIMIT_PAUSE)
+                    continue
             raise
-    raise last_exc
+    if last_exc:
+        raise last_exc
+    return pd.DataFrame()
 
 
 def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
@@ -250,20 +286,46 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
 
 def _download_single(ticker):
     """
-    Download all timeframes for one ticker individually (crumb-safe fallback).
-    yfinance 1.4+ returns MultiIndex columns even for single-ticker downloads,
-    so we run _slice_ticker to flatten to plain Open/Close/Volume columns.
+    Download timeframes for one ticker (crumb-safe fallback).
+    On hosted deploys skip 1m intraday — daily close is enough and saves API calls.
     """
-    daily    = _slice_ticker(_yf_download(ticker, period="5d", interval="1d", auto_adjust=True), ticker)
-    intraday = _slice_ticker(_yf_download(ticker, period="1d", interval="1m", auto_adjust=True), ticker)
-    year     = _slice_ticker(_yf_download(ticker, period="1y", interval="1d", auto_adjust=True), ticker)
+    daily = _slice_ticker(_yf_download(ticker, period="5d", interval="1d", auto_adjust=True), ticker)
+    if daily is None or daily.empty:
+        _set_rate_limit_cooldown()
+        raise ValueError(f"No daily data for {ticker}")
+    year = _slice_ticker(_yf_download(ticker, period="1y", interval="1d", auto_adjust=True), ticker)
+    intraday = None
+    if not _SKIP_INTRADAY:
+        intraday = _slice_ticker(_yf_download(ticker, period="1d", interval="1m", auto_adjust=True), ticker)
     return daily, intraday, year
+
+
+def _fetch_one_ticker(ticker):
+    """Serial fetch for one symbol — primary path on Render."""
+    if _in_rate_limit_cooldown():
+        return None
+    try:
+        daily, intraday, year = _download_single(ticker)
+        return _build_row(ticker, daily, intraday, year)
+    except Exception:
+        logger.error("Failed to fetch %s:\n%s", ticker, traceback.format_exc())
+        return None
 
 
 def _fetch_tickers_chunk(tickers):
     """Batch-download a small chunk of tickers then build rows."""
     if not tickers:
         return []
+
+    if _HOSTED:
+        rows = []
+        for ticker in tickers:
+            if _in_rate_limit_cooldown():
+                break
+            row = _fetch_one_ticker(ticker)
+            if row:
+                rows.append(row)
+        return rows
 
     daily_df    = _yf_download(tickers, period="5d", interval="1d", group_by="ticker", auto_adjust=True)
     intraday_df = _yf_download(tickers, period="1d", interval="1m", group_by="ticker", auto_adjust=True)
@@ -325,9 +387,20 @@ def fetch_market_data(tickers):
         need_fetch.append(ticker)
 
     if need_fetch:
-        for row in _fetch_tickers_batch(need_fetch):
-            sym = row["ticker"]
-            _cache["rows"][sym] = row
-            _cache["updated_at"][sym] = now
+        with _fetch_lock:
+            if _in_rate_limit_cooldown():
+                logger.info("yfinance cooldown — serving cached data for %d stale tickers", len(need_fetch))
+            else:
+                still_need = []
+                now_locked = datetime.now()
+                for ticker in need_fetch:
+                    updated = _cache["updated_at"].get(ticker)
+                    if ticker in _cache["rows"] and updated and (now_locked - updated) < _CACHE_TTL:
+                        continue
+                    still_need.append(ticker)
+                for row in _fetch_tickers_batch(still_need):
+                    sym = row["ticker"]
+                    _cache["rows"][sym] = row
+                    _cache["updated_at"][sym] = now_locked
 
     return [_cache["rows"][t] for t in tickers if t in _cache["rows"]]
