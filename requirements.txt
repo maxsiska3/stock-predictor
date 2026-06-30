@@ -5,5 +5,4 @@ gunicorn
 pandas
 scikit-learn
 yfinance
-matplotlib
 joblib

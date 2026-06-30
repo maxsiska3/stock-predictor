@@ -13,7 +13,7 @@ from utils.config import FUNDS, get_fund_tickers
 from utils.db import init_db
 from utils.market import fetch_market_data
 from utils.predict import predict_stock
-from utils.refresh import get_union_fetch_tickers, start_background_refresh
+from utils.refresh import start_background_refresh
 from utils.ticker_search import search_tickers
 from utils.watchlist_store import WatchlistError, add_tickers, load_watchlist, remove_ticker
 
@@ -283,13 +283,7 @@ def predict():
 init_db()
 start_background_refresh()
 
-# Warm cache once on startup (union of all tickers).
-try:
-    union = get_union_fetch_tickers()
-    if union:
-        fetch_market_data(union)
-except Exception as e:
-    print(f"Startup cache warm skipped: {e}")
+# Cache warm runs in the background thread — do not block Gunicorn startup on Render.
 
 
 if __name__ == "__main__":
