@@ -5,6 +5,7 @@
 # SPY (always needed for the vs-S&P benchmark) every 60 seconds.
 
 import logging
+import os
 import threading
 import time
 
@@ -14,9 +15,10 @@ from utils.market import fetch_market_data
 
 logger = logging.getLogger(__name__)
 
-REFRESH_INTERVAL_SEC = 60
-# Let Gunicorn bind and pass Render health checks before the first yfinance burst.
-STARTUP_DELAY_SEC = 20
+_HOSTED = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_PATH", "").startswith("/data/"))
+REFRESH_INTERVAL_SEC = 120 if _HOSTED else 60
+# Let Gunicorn pass health checks before the first yfinance burst on Render.
+STARTUP_DELAY_SEC = 60 if _HOSTED else 20
 
 
 def get_union_fetch_tickers():
