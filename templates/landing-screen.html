@@ -107,7 +107,7 @@
     {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
     {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
     {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
-    <div class="row watchlist-grid table-row{% if fund_id %} fund-holding-row{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
+    <div class="row {% if fund_id %}funds-grid fund-holding-row{% else %}watchlist-grid{% endif %} table-row" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
       <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}{{ stock.ticker }}</span>
       <span class="num">${{ "%.2f"|format(stock.price) }}</span>
       <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
@@ -116,14 +116,11 @@
       <div class="day-chart" aria-hidden="true"></div>
       <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% elif stock.eps_note %}<span class="field-note">{{ stock.eps_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
+      {% if fund_id %}<span aria-hidden="true"></span>{% endif %}
       <span class="num">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="num">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% elif stock.beta_note %}<span class="field-note">{{ stock.beta_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
-      <span class="col-text">{% if stock.sector %}{{ stock.sector }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="pred-cell">
         <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
       </span>
@@ -167,14 +164,10 @@
               <span>Day Graph</span>
               <span>52 Week High</span>
               <span>52 Week Low</span>
-              <span>P/E</span>
-              <span>EPS</span>
               <span>RSI</span>
               <span>Bollinger Pos</span>
               <span>Volatility</span>
               <span>MACD</span>
-              <span>Beta</span>
-              <span>Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
               {{ vs_index_header() }}
@@ -239,13 +232,10 @@
               <span>Top Performer</span>
               <span>Worst Performer</span>
               <span>Outlook</span>
-              <span>Avg EPS</span>
               <span>Avg RSI</span>
               <span>Avg Boll Pos</span>
               <span>Avg Vol</span>
               <span>Avg MACD</span>
-              <span>Beta</span>
-              <span>Dominant Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
               {{ vs_index_header() }}
@@ -278,13 +268,10 @@
                 <span class="col-text">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="col-text">{% if fund.worst_performer %}{{ fund.worst_performer }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.outlook %}{{ fund.outlook }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if fund.avg_eps is not none %}${{ "%.2f"|format(fund.avg_eps) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_macd is not none %}{{ "%.2f"|format(fund.avg_macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="col-text">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="pred-cell">
                   {% if fund.avg_conf is not none %}
                   <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.1f"|format(fund.avg_conf) }}%</span></span>
@@ -383,31 +370,6 @@
 
         </div>
       </section>
-
-      <!-- Sector Exposure -->
-      {% if sectorGroups %}
-      <section class="panel-card">
-        <div class="panel-header-row">
-          <div>
-            <h2 class="section-title">Sector Exposure</h2>
-            <span class="section-subtitle">from your watchlist</span>
-          </div>
-        </div>
-        <div style="padding:10px 14px 14px">
-          {% for sg in sectorGroups %}
-          <div class="sector-row">
-            <div class="sector-label">
-              <span class="sector-name">{{ sg.sector }}</span>
-              <span class="sector-pct num">{{ sg.pct }}%</span>
-            </div>
-            <div class="sector-bar-track">
-              <div class="sector-bar-fill" style="width:{{ sg.pct }}%"></div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-      {% endif %}
 
     </aside>
   </div>

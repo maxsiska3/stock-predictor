@@ -12,7 +12,10 @@ body{
 #app-root{
   --table-col-gap:10px;
   /* Shared 25-column grid — watchlist & funds use identical tracks. */
-  --dashboard-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 65px 80px 75px 75px 65px 180px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
+  /* P/E, EPS, Beta, Sector (watchlist) / Avg EPS, Beta, Dominant Sector (funds) are
+     hidden — Yahoo's free fundamentals endpoint is unreliable from hosted IPs. */
+  --watchlist-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
+  --funds-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
   --dashboard-panel-body-min:300px;
   --sub-bg:var(--panel);
   --muted2:var(--muted);
@@ -198,8 +201,9 @@ body{
 .watchlist-grid,.funds-grid{
   display:grid;align-items:center;
   column-gap:var(--table-col-gap);
-  grid-template-columns:var(--dashboard-cols);
 }
+.watchlist-grid{grid-template-columns:var(--watchlist-cols);}
+.funds-grid{grid-template-columns:var(--funds-cols);}
 .watchlist-grid>*,.funds-grid>*{
   display:flex;justify-content:center;align-items:center;
   width:100%;min-width:0;

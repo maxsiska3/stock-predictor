@@ -18,9 +18,9 @@ Kouros is a multi-user hosted dashboard with per-account data in SQLite.
 | **Positions** | Per-ticker shares, avg cost, mkt value, gain/loss, return % — click Shares to edit. |
 | **Funds** | User-created funds via search modal; expandable rows with per-holding watchlist columns; fund-level position aggregates; value-weighted Chg % / $ Change. |
 | **vs Index** | Shared **vs** column on watchlist + funds (S&P / Dow / NASDAQ header dropdown; synced via `localStorage`). |
-| **Sidebar** | Gainers & losers (positive-only / negative-only) + sector exposure chart (labeled *from your watchlist*). |
+| **Sidebar** | Gainers & losers (positive-only / negative-only). |
 | **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching, SQLite WAL + write retries, ticker search HTTP fallback on Render. |
-| **Design** | Light / Dark / Kouros themes; shared 25-column grid; page scroll with unified horizontal scroll (`dashboard-hscroll-track`). |
+| **Design** | Light / Dark / Kouros themes; shared dashboard grid; page scroll with unified horizontal scroll (`dashboard-hscroll-track`). |
 
 **Not yet:** detail screens, predictions screen, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
 
@@ -46,12 +46,11 @@ Clicking any ticker in the watchlist or funds table navigates here.
 │  PRICE CHART (1D / 1W / 1M / 3M / 1Y)          │
 │  [interactive line chart — Chart.js or D3]      │
 ├──────────────┬──────────────────────────────────┤
-│  FUNDAMENTALS│  TECHNICALS                      │
-│  P/E   28.4  │  RSI          62.3               │
-│  EPS   $6.43 │  MACD         0.84               │
-│  Beta  1.21  │  Bollinger    0.71               │
-│  52W H $237  │  Volatility   0.018              │
-│  52W L $164  │                                  │
+│  KEY STATS   │  TECHNICALS                      │
+│  52W H $237  │  RSI          62.3               │
+│  52W L $164  │  MACD         0.84               │
+│              │  Bollinger    0.71               │
+│              │  Volatility   0.018              │
 ├──────────────┴──────────────────────────────────┤
 │  PREDICTION HISTORY (last 14 days)              │
 │  [mini chart — confidence over time]            │
@@ -97,14 +96,9 @@ Clicking a fund summary row navigates here.
 │  [mini table — ticker, shares, value, gain/loss,│
 │   today's change, prediction badge]             │
 ├─────────────────────────────────────────────────┤
-│  SECTOR EXPOSURE                                │
-│  Technology      58%  ████████████             │
-│  Financials      22%  ████                     │
-│  Healthcare      20%  ████                     │
-├─────────────────────────────────────────────────┤
 │  AVG METRICS                                    │
-│  Avg RSI, Avg Beta, Avg EPS, Avg Volatility     │
-│  Avg confidence, Dominant sector                │
+│  Avg RSI, Avg Volatility, Avg MACD              │
+│  Avg confidence                                 │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -185,7 +179,6 @@ Current features are all price/volume derived (RSI, MACD, Bollinger, volatility)
 | Volume anomaly | Today's volume / 20-day avg volume. Unusual volume precedes moves |
 | Gap from 50-day MA | % distance above/below 50-day MA — mean reversion signal |
 | Gap from 200-day MA | Same for 200-day — longer term trend context |
-| Relative strength vs sector | Stock % change minus sector ETF % change. Removes market noise |
 | 52-week position | Where in the 52-week range is today's price? (0 = at low, 1 = at high) |
 
 None of these require paid data — all derivable from yfinance history already being fetched.
@@ -255,12 +248,6 @@ Every trading day, log the model's predictions for each user's watchlist. At mar
 
 ---
 
-### 1.8 — Sector-Specific Models (longer term)
-
-Tech stocks have different volatility profiles than financials or healthcare. A single model trained on everything compromises on all sectors. Eventually train one model per sector and route each ticker to its sector model at inference time.
-
----
-
 ### Improvement Priority Order
 
 ```
@@ -271,7 +258,6 @@ Tech stocks have different volatility profiles than financials or healthcare. A 
 5. Expand training data (S&P 500)  ← biggest generalization gain
 6. Walk-forward validation         ← verify improvements are real
 7. Prediction history log          ← powers Predictions screen (Phase 2)
-8. Sector-specific models          ← longer term
 ```
 
 **Realistic outcome after steps 1–6:** consistent 55–58% overall accuracy, well-calibrated confidence scores, and honest historical accuracy numbers to show users.
@@ -300,11 +286,11 @@ Accessible from header nav (tab: **Predictions**). Scoped to the user's watchlis
 │  When wrong — avg miss: 0.8%  ·  Near/soft misses: 18 (41%)      │
 │  When right — avg move: 1.1%  ·  Avg conf (hits): 61%            │
 ├──────────────────────────────────────────────────────────────────┤
-│  CALIBRATION                    │  BY SECTOR (hit rate)           │
-│  Conf bucket → actual hit rate  │  Technology    58%              │
-│  55–60%  ████████  58%          │  Financials    71%              │
-│  60–65%  ██████████  64%        │  Healthcare    50%              │
-│  65%+    ██████  52%  ⚠ overconf│                                 │
+│  CALIBRATION                                                     │
+│  Conf bucket → actual hit rate                                   │
+│  55–60%  ████████  58%                                           │
+│  60–65%  ██████████  64%                                         │
+│  65%+    ██████  52%  ⚠ overconf                                 │
 ├──────────────────────────────────────────────────────────────────┤
 │  BEST / WORST ON YOUR LIST                                        │
 │  Best:  AAPL 8/10 (80%)   Worst: INTC 2/9 (22%)                  │
@@ -379,10 +365,6 @@ def classify_miss(predicted_up: bool, actual_pct: float) -> tuple[str, float]:
 - Best / worst tickers for the model
 - Avg miss severity per ticker (some names may be noisier)
 
-**Per sector**
-- Hit rate and avg miss magnitude grouped by sector
-- Surfaces where the single global model struggles
-
 **Direction bias**
 - % of predictions that are ▲ vs ▼
 - False positive rate for UP calls vs DOWN calls
@@ -391,7 +373,7 @@ def classify_miss(predicted_up: bool, actual_pct: float) -> tuple[str, float]:
 **Filters & controls**
 - Scope: watchlist | funds | all symbols user tracks
 - Date range: 7d / 30d / 90d / custom
-- Filter by: tier (hits only, hard misses only), confidence min, ticker, sector
+- Filter by: tier (hits only, hard misses only), confidence min, ticker
 - Sort history by: date, miss magnitude, confidence
 
 ---
@@ -547,12 +529,11 @@ Phase 1 — Model Improvement
   1.5  Expand training data (S&P 500, 2010–present)
   1.6  Walk-forward validation
   1.7  Prediction history log (daily background job)
-  1.8  Sector-specific models (longer term)
 
 Phase 2 — Predictions Screen
   2.1  Layout — summary, calibration, history table
   2.2  Miss severity tiers (near / soft / hard)
-  2.3  Metrics — calibration, per-ticker, sector, direction bias
+  2.3  Metrics — calibration, per-ticker, direction bias
   2.4  API + prediction_log aggregates
   2.5  Stock detail cross-links (confidence trend, notes)
 
@@ -584,7 +565,7 @@ Phase 5 — Polish
 | ML | scikit-learn RandomForest, joblib (`model/*.pkl`) |
 | Data | yfinance + 60s per-ticker cache + background refresh |
 | Frontend | Vanilla JS, CSS custom properties, shared dashboard grid |
-| Charts | Sector bars (CSS); Chart.js planned for detail screens |
+| Charts | Chart.js planned for detail screens |
 | Hosting | Render (`render.yaml`, Gunicorn, persistent disk) |
 | Scheduling | Background market refresh thread; APScheduler planned for prediction log |
 

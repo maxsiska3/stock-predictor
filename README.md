@@ -8,7 +8,7 @@ A live stock market dashboard with next-day direction predictions powered by a t
 
 ## Overview
 
-Kouros pulls live market data for a personal watchlist, surfaces technical indicators and fundamentals, and runs a trained ML classifier to predict whether each stock will move up or down the next trading day. Holdings can be grouped into funds with portfolio-level metrics and an aggregated prediction outlook.
+Kouros pulls live market data for a personal watchlist, surfaces technical indicators, and runs a trained ML classifier to predict whether each stock will move up or down the next trading day. Holdings can be grouped into funds with portfolio-level metrics and an aggregated prediction outlook.
 
 The UI is a single-page Flask dashboard with a unified 18-column grid for watchlist and fund tables, a movers & predictions sidebar, and a three-theme design system (Light, Dark, Kouros). The watchlist is fully editable — add or remove tickers at any time through a live search modal without touching any code.
 
@@ -26,14 +26,14 @@ The UI is a single-page Flask dashboard with a unified 18-column grid for watchl
 
 ### Watchlist table
 - Live price, change %, dollar change, and volume
-- 52-week high/low, P/E, EPS, RSI, Bollinger position, volatility, MACD, beta, and sector
+- 52-week high/low, RSI, Bollinger position, volatility, and MACD
 - Next-day prediction badge: direction arrow + model confidence to two decimal places
 - Aligned with the funds table on a shared 18-column grid
 
 ### Funds
 - Portfolios defined in code and aggregated from watchlist holdings
 - Portfolio change %, dollar change, total value, top/worst performer
-- Tomorrow outlook (e.g. `4/6 up`), average technicals, dominant sector
+- Tomorrow outlook (e.g. `4/6 up`) and average technicals
 - Aggregated prediction direction and average confidence
 
 ### Movers & Predictions sidebar
