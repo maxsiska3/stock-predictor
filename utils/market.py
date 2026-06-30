@@ -4,6 +4,7 @@
 # Per-ticker cache (60s TTL) so different users can share cached rows.
 
 import logging
+import time
 import traceback
 
 import pandas as pd
@@ -21,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 _cache = {"rows": {}, "updated_at": {}}
 _CACHE_TTL = timedelta(seconds=60)
+
+# Throttle Yahoo Finance on Render — batch + per-ticker ML used to hammer the API at boot.
+_YF_BATCH_SIZE = 5
+_YF_PAUSE_SEC = 0.75
+_YF_RATE_LIMIT_PAUSE = 8.0
+_info_cache = {}
 
 
 def clear_cache(tickers=None):
@@ -95,10 +102,41 @@ def _etf_display_fields(info, eps, beta, sector):
 
 
 def _ticker_info(ticker):
+    if ticker in _info_cache:
+        return _info_cache[ticker]
     try:
-        return yf.Ticker(ticker).info or {}
+        info = yf.Ticker(ticker).info or {}
     except Exception:
-        return {}
+        info = {}
+    _info_cache[ticker] = info
+    return info
+
+
+def _yf_pause(seconds=None):
+    time.sleep(seconds if seconds is not None else _YF_PAUSE_SEC)
+
+
+def _is_rate_limited(exc):
+    msg = str(exc).lower()
+    return "rate" in msg or "too many" in msg or "429" in msg
+
+
+def _yf_download(tickers, **kwargs):
+    """yf.download with a short pause and one backoff retry on rate limits."""
+    last_exc = None
+    for attempt in range(2):
+        try:
+            result = yf.download(tickers, progress=False, **kwargs)
+            _yf_pause()
+            return result
+        except Exception as exc:
+            last_exc = exc
+            if attempt == 0 and _is_rate_limited(exc):
+                logger.warning("yfinance rate limited — backing off %.0fs", _YF_RATE_LIMIT_PAUSE)
+                time.sleep(_YF_RATE_LIMIT_PAUSE)
+                continue
+            raise
+    raise last_exc
 
 
 def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
@@ -159,7 +197,7 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
     if sector_display:
         sector = sector_display
 
-    prediction, confidence = predict_stock(ticker)
+    prediction, confidence = predict_stock(ticker, history_df=ticker_year)
 
     return {
         "ticker": ticker,
@@ -192,25 +230,20 @@ def _download_single(ticker):
     yfinance 1.4+ returns MultiIndex columns even for single-ticker downloads,
     so we run _slice_ticker to flatten to plain Open/Close/Volume columns.
     """
-    daily    = _slice_ticker(yf.download(ticker, period="5d", interval="1d", auto_adjust=True, progress=False), ticker)
-    intraday = _slice_ticker(yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False), ticker)
-    year     = _slice_ticker(yf.download(ticker, period="1y", interval="1d", auto_adjust=True, progress=False), ticker)
+    daily    = _slice_ticker(_yf_download(ticker, period="5d", interval="1d", auto_adjust=True), ticker)
+    intraday = _slice_ticker(_yf_download(ticker, period="1d", interval="1m", auto_adjust=True), ticker)
+    year     = _slice_ticker(_yf_download(ticker, period="1y", interval="1d", auto_adjust=True), ticker)
     return daily, intraday, year
 
 
-def _fetch_tickers_batch(tickers):
-    """
-    Batch-download all tickers then build rows.
-    If a ticker's slice is empty after the batch (e.g. due to 401 crumb expiry
-    mid-download), retry that ticker individually before giving up.
-    """
+def _fetch_tickers_chunk(tickers):
+    """Batch-download a small chunk of tickers then build rows."""
     if not tickers:
         return []
 
-    # period="5d" ensures at least 2 trading days even across weekends/holidays
-    daily_df    = yf.download(tickers, period="5d", interval="1d", group_by="ticker", auto_adjust=True, progress=False)
-    intraday_df = yf.download(tickers, period="1d", interval="1m", group_by="ticker", auto_adjust=True, progress=False)
-    year_df     = yf.download(tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True, progress=False)
+    daily_df    = _yf_download(tickers, period="5d", interval="1d", group_by="ticker", auto_adjust=True)
+    intraday_df = _yf_download(tickers, period="1d", interval="1m", group_by="ticker", auto_adjust=True)
+    year_df     = _yf_download(tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True)
 
     list_data = []
     for ticker in tickers:
@@ -218,10 +251,9 @@ def _fetch_tickers_batch(tickers):
         intraday = _slice_ticker(intraday_df, ticker)
         year     = _slice_ticker(year_df, ticker)
 
-        # Batch failed for this ticker (crumb expiry, rate limit, bad symbol) —
-        # retry individually so one bad apple doesn't drop the rest of the list.
         if daily is None or daily.empty:
             logger.warning("Batch returned no data for %s — retrying individually", ticker)
+            time.sleep(_YF_RATE_LIMIT_PAUSE)
             try:
                 daily, intraday, year = _download_single(ticker)
             except Exception:
@@ -234,6 +266,20 @@ def _fetch_tickers_batch(tickers):
         except Exception:
             logger.error("Error building row for %s:\n%s", ticker, traceback.format_exc())
 
+    return list_data
+
+
+def _fetch_tickers_batch(tickers):
+    """Batch-download tickers in small chunks to avoid Yahoo rate limits."""
+    if not tickers:
+        return []
+
+    list_data = []
+    for i in range(0, len(tickers), _YF_BATCH_SIZE):
+        chunk = tickers[i : i + _YF_BATCH_SIZE]
+        list_data.extend(_fetch_tickers_chunk(chunk))
+        if i + _YF_BATCH_SIZE < len(tickers):
+            _yf_pause()
     return list_data
 
 
