@@ -14,37 +14,49 @@ logger = logging.getLogger(__name__)
 _configured = False
 _session = None
 
+# IMPORTANT: yf.set_tz_cache_location() also relocates yfinance's *cookie/crumb*
+# cache (see yfinance/cache.py — set_cache_location sets Tz + Cookie + ISIN
+# caches together). That cookie is what .info needs to authenticate with Yahoo.
+# Previously this pointed at Render's persistent /data disk, so a single bad/
+# blocked cookie cached during an earlier rate-limited deploy would survive
+# every future redeploy forever — explaining why price data recovered but
+# P/E, EPS, beta, and sector stayed permanently blank. Always use an ephemeral
+# directory instead so a fresh cookie/crumb is negotiated on every restart.
+_CACHE_DIR = Path(os.environ.get("YFINANCE_CACHE_DIR") or "/tmp/yfinance-cache")
+
+# One-time cleanup: remove any cookie cache yfinance may have written to the
+# persistent disk in earlier deploys, so it can never be reused again.
+_STALE_CACHE_DIRS = [Path("/data/yfinance-cache")]
+
+
+def _purge_stale_cookie_caches():
+    for stale_dir in _STALE_CACHE_DIRS:
+        for name in ("cookies.db", "cookies.db-wal", "cookies.db-shm"):
+            stale_file = stale_dir / name
+            try:
+                if stale_file.exists():
+                    stale_file.unlink()
+                    logger.info("Removed stale yfinance cookie cache: %s", stale_file)
+            except OSError as exc:
+                logger.warning("Could not remove stale cookie cache %s: %s", stale_file, exc)
+
 
 def configure_yfinance():
-    """Point yfinance timezone/cookie caches at a writable directory."""
+    """Point yfinance's tz/cookie caches at a fresh, ephemeral directory."""
     global _configured
     if _configured:
         return
 
     import yfinance as yf
 
-    cache_dir = os.environ.get("YFINANCE_CACHE_DIR")
-    if not cache_dir:
-        candidates = []
-        db_path = os.environ.get("DATABASE_PATH")
-        if db_path:
-            candidates.append(Path(db_path).parent / "yfinance-cache")
-        candidates.extend([Path("/data/yfinance-cache"), Path("/tmp/yfinance-cache")])
+    _purge_stale_cookie_caches()
 
-        for candidate in candidates:
-            try:
-                candidate.mkdir(parents=True, exist_ok=True)
-                cache_dir = str(candidate)
-                break
-            except OSError:
-                continue
-
-    if cache_dir:
-        try:
-            yf.set_tz_cache_location(cache_dir)
-            logger.info("yfinance cache directory: %s", cache_dir)
-        except Exception as exc:
-            logger.warning("yfinance cache setup failed: %s", exc)
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        yf.set_tz_cache_location(str(_CACHE_DIR))
+        logger.info("yfinance cache directory: %s", _CACHE_DIR)
+    except OSError as exc:
+        logger.warning("yfinance cache setup failed: %s", exc)
 
     _configured = True
 
