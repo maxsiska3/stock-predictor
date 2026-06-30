@@ -5,7 +5,7 @@
 import yfinance as yf
 
 from utils.yfinance_setup import configure_yfinance
-from utils.db import get_connection, utc_now_iso
+from utils.db import commit_with_retry, get_connection, utc_now_iso
 from utils.market import clear_cache
 
 configure_yfinance()
@@ -37,10 +37,17 @@ def _normalize_list(tickers):
     return result
 
 
-def load_watchlist(user_id):
+def load_watchlist(user_id, conn=None):
     """Return the user's saved symbols in insertion order."""
-    with get_connection() as conn:
+    if conn is not None:
         rows = conn.execute(
+            "SELECT symbol FROM watchlist WHERE user_id = ? ORDER BY added_at ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+        return [row["symbol"] for row in rows]
+
+    with get_connection() as c:
+        rows = c.execute(
             "SELECT symbol FROM watchlist WHERE user_id = ? ORDER BY added_at ASC, id ASC",
             (user_id,),
         ).fetchall()
@@ -60,7 +67,7 @@ def save_watchlist(user_id, tickers):
                 "INSERT INTO watchlist (user_id, symbol, added_at) VALUES (?, ?, ?)",
                 (user_id, symbol, utc_now_iso()),
             )
-        conn.commit()
+        commit_with_retry(conn)
 
 
 def _validate_ticker(symbol):
@@ -76,43 +83,45 @@ def add_tickers(user_id, symbols, trusted_from_search=True):
     if not symbols:
         raise WatchlistError("No tickers provided")
 
-    current = load_watchlist(user_id)
-    current_set = set(current)
-    added, skipped, failed = [], [], []
+    with get_connection() as conn:
+        current = load_watchlist(user_id, conn=conn)
+        current_set = set(current)
+        added, skipped, failed = [], [], []
 
-    for raw in symbols:
-        try:
-            sym = _normalize_symbol(raw)
-        except WatchlistError:
-            failed.append({"symbol": str(raw), "reason": "Ticker is required"})
-            continue
+        for raw in symbols:
+            try:
+                sym = _normalize_symbol(raw)
+            except WatchlistError:
+                failed.append({"symbol": str(raw), "reason": "Ticker is required"})
+                continue
 
-        if sym in current_set:
-            reason = "Already in watchlist" if sym in current else "Duplicate in request"
-            skipped.append({"symbol": sym, "reason": reason})
-            continue
+            if sym in current_set:
+                reason = "Already in watchlist" if sym in current else "Duplicate in request"
+                skipped.append({"symbol": sym, "reason": reason})
+                continue
 
-        if len(current) + len(added) >= MAX_TICKERS:
-            failed.append({"symbol": sym, "reason": f"Max {MAX_TICKERS} tickers"})
-            continue
+            if len(current) + len(added) >= MAX_TICKERS:
+                failed.append({"symbol": sym, "reason": f"Max {MAX_TICKERS} tickers"})
+                continue
 
-        if not trusted_from_search and not _validate_ticker(sym):
-            failed.append({"symbol": sym, "reason": "Invalid ticker"})
-            continue
+            if not trusted_from_search and not _validate_ticker(sym):
+                failed.append({"symbol": sym, "reason": "Invalid ticker"})
+                continue
 
-        added.append(sym)
-        current_set.add(sym)
+            added.append(sym)
+            current_set.add(sym)
 
-    updated = current + added
+        updated = current + added
 
-    if added:
-        with get_connection() as conn:
+        if added:
             for symbol in added:
                 conn.execute(
                     "INSERT INTO watchlist (user_id, symbol, added_at) VALUES (?, ?, ?)",
                     (user_id, symbol, utc_now_iso()),
                 )
-            conn.commit()
+            commit_with_retry(conn)
+
+    if added:
         clear_cache(added)
 
     return {
@@ -136,7 +145,7 @@ def remove_ticker(user_id, symbol):
             "DELETE FROM watchlist WHERE user_id = ? AND symbol = ?",
             (user_id, sym),
         )
-        conn.commit()
+        commit_with_retry(conn)
 
     clear_cache([sym])
     return [t for t in current if t != sym]
