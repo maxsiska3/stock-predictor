@@ -1,4 +1,7 @@
 flask
+flask-login
+bcrypt
+gunicorn
 pandas
 scikit-learn
 yfinance

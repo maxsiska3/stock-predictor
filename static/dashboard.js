@@ -289,6 +289,22 @@
         onRemoveTicker(btn.getAttribute("data-ticker"));
       });
     });
+
+    /* Profile menu */
+    var profileBtn = $("profile-menu-btn");
+    var profileMenu = $("profile-menu");
+    if (profileBtn && profileMenu) {
+      profileBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = profileMenu.hidden;
+        profileMenu.hidden = !open;
+        profileBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      document.addEventListener("click", function () {
+        profileMenu.hidden = true;
+        profileBtn.setAttribute("aria-expanded", "false");
+      });
+    }
   }
 
   if (document.readyState === "loading") {

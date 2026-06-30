@@ -5,3 +5,5 @@ venv/
 .env
 *.pkl
 data/watchlist.json
+data/kouros.db
+data/*.db

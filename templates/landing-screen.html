@@ -65,11 +65,17 @@
         </div>
       </div>
       <div style="width:1px;height:18px;background:var(--line)"></div>
-      <button type="button" class="profile-btn">
-        <div class="profile-avatar">M</div>
-        <span>Max</span>
-        <span>▾</span>
-      </button>
+      <div class="profile-wrap">
+        <button type="button" class="profile-btn" id="profile-menu-btn" aria-haspopup="true" aria-expanded="false">
+          <div class="profile-avatar">{{ current_user.initial }}</div>
+          <span>{{ current_user.display_name }}</span>
+          <span>▾</span>
+        </button>
+        <div class="profile-menu" id="profile-menu" hidden>
+          <span class="profile-menu-email">{{ current_user.email }}</span>
+          <a href="{{ url_for('logout') }}" class="profile-menu-link">Log out</a>
+        </div>
+      </div>
     </div>
   </header>
 
