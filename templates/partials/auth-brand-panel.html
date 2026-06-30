@@ -1,0 +1,106 @@
+<div class="lp">
+
+  <div class="lp-art-zone">
+    <svg
+      style="position:absolute; left:60px; top:0; height:100%; width:calc(100% - 60px);"
+      viewBox="60 0 660 460"
+      preserveAspectRatio="xMinYMid meet"
+      fill="none" xmlns="http://www.w3.org/2000/svg">
+
+      <defs>
+        <linearGradient id="cfade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="55%" stop-color="#0a0f1e" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#0a0f1e" stop-opacity="1"/>
+        </linearGradient>
+        <linearGradient id="ctopfade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0a0f1e" stop-opacity="1"/>
+          <stop offset="12%" stop-color="#0a0f1e" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Axis -->
+      <line x1="60" y1="30" x2="60" y2="410" stroke="rgba(200,215,240,0.18)" stroke-width="1"/>
+      <line x1="60" y1="410" x2="700" y2="410" stroke="rgba(200,215,240,0.18)" stroke-width="1"/>
+
+      <!-- Price grid -->
+      <g stroke="rgba(200,215,240,0.22)" stroke-width="1" stroke-dasharray="4 6">
+        <line x1="60" y1="110" x2="700" y2="110"/>
+        <line x1="60" y1="210" x2="700" y2="210"/>
+        <line x1="60" y1="310" x2="700" y2="310"/>
+      </g>
+
+      <!-- Bearish wicks -->
+      <g stroke="#e05252" stroke-width="1.4" opacity="0.85">
+        <line x1="88"  y1="270" x2="88"  y2="386"/>
+        <line x1="244" y1="208" x2="244" y2="357"/>
+        <line x1="400" y1="184" x2="400" y2="266"/>
+        <line x1="556" y1="78"  x2="556" y2="194"/>
+      </g>
+
+      <!-- Bullish wicks -->
+      <g stroke="#4daf7c" stroke-width="1.4" opacity="0.85">
+        <line x1="140" y1="299" x2="140" y2="386"/>
+        <line x1="192" y1="256" x2="192" y2="342"/>
+        <line x1="296" y1="256" x2="296" y2="362"/>
+        <line x1="348" y1="194" x2="348" y2="294"/>
+        <line x1="452" y1="165" x2="452" y2="275"/>
+        <line x1="504" y1="107" x2="504" y2="218"/>
+        <line x1="608" y1="93"  x2="608" y2="203"/>
+        <line x1="660" y1="40"  x2="660" y2="141"/>
+      </g>
+
+      <!-- Bearish bodies -->
+      <g fill="#5c1a1a" stroke="#e05252" stroke-width="1.2">
+        <rect x="77"  y="304" width="22" height="48"/>
+        <rect x="233" y="270" width="22" height="58"/>
+        <rect x="389" y="208" width="22" height="43"/>
+        <rect x="545" y="122" width="22" height="52"/>
+      </g>
+
+      <!-- Bullish bodies -->
+      <g fill="#0f3320" stroke="#4daf7c" stroke-width="1.2">
+        <rect x="129" y="318" width="22" height="48"/>
+        <rect x="181" y="280" width="22" height="48"/>
+        <rect x="285" y="275" width="22" height="63"/>
+        <rect x="337" y="218" width="22" height="62"/>
+        <rect x="441" y="194" width="22" height="62"/>
+        <rect x="493" y="131" width="22" height="67"/>
+        <rect x="597" y="117" width="22" height="67"/>
+        <rect x="649" y="59"  width="22" height="63"/>
+      </g>
+
+      <!-- Moving average -->
+      <polyline
+        points="88,328 140,342 192,304 244,299 296,307 348,249 400,230 452,225 504,165 556,148 608,151 660,91"
+        stroke="#c9a84c" stroke-width="1.6" opacity="0.6" stroke-linejoin="round"/>
+
+      <!-- Fade overlays -->
+      <rect x="60" y="0" width="660" height="460" fill="url(#ctopfade)"/>
+      <rect x="60" y="0" width="660" height="460" fill="url(#cfade)"/>
+
+      <!-- Tomorrow forecast — direction only -->
+      <g>
+        <line x1="671" y1="59" x2="700" y2="48"
+          stroke="#4daf7c" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <text x="700" y="32"
+          font-family="Archivo,sans-serif" font-size="8.5" font-weight="500"
+          fill="#6b8094" letter-spacing="1.2" text-anchor="middle">TOMORROW</text>
+        <rect x="683" y="36" width="34" height="13" rx="2" fill="#11271e"/>
+        <text x="700" y="46"
+          font-family="Archivo,sans-serif" font-size="8.5" font-weight="500"
+          fill="#34d17f" letter-spacing="0.3" text-anchor="middle">▲ Up</text>
+      </g>
+    </svg>
+  </div>
+
+  <div>
+    <div class="lp-wordmark">Kouros</div>
+    <div class="lp-tagline">Bringing Data to Life</div>
+  </div>
+
+  <div class="lp-caption">
+    <p>Track your watchlist.</p>
+    <p>See where the market moves next.</p>
+    <p>AI-powered daily forecasts</p>
+  </div>
+</div>

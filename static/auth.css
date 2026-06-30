@@ -1,0 +1,195 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: #f4f3ef; font-family: 'Archivo', sans-serif; }
+
+.auth-root { display: flex; height: 100vh; min-height: 600px; }
+
+/* ── Left brand panel ── */
+.lp {
+  flex: none;
+  width: 58%;
+  background: #0a0f1e;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 64px 60px 56px 60px;
+}
+
+.lp-art-zone {
+  position: absolute;
+  left: 0; right: 0;
+  top: 16%; bottom: 20%;
+  pointer-events: none;
+}
+
+.lp-wordmark {
+  font-family: 'Marcellus SC', serif;
+  font-size: 52px;
+  color: #e8eaf0;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 2;
+}
+.lp-tagline {
+  font-family: 'Archivo', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.44em;
+  color: #7a8fab;
+  position: relative;
+  z-index: 2;
+}
+.lp-caption {
+  font-family: 'Archivo', sans-serif;
+  font-size: 12px;
+  color: #8094b0;
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lp-caption p {
+  line-height: 1.4;
+}
+
+/* ── Right form panel ── */
+.rp {
+  flex: 1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60px;
+}
+.rp-inner { width: 100%; max-width: 300px; }
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 44px;
+}
+.tab {
+  font-family: 'Archivo', sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0 0 13px 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.18s;
+}
+.tab + .tab { margin-left: 28px; }
+.tab--inactive { color: #9ca3af; }
+.tab--inactive:hover { color: #6b7280; }
+.tab--active { color: #111827; border-bottom-color: #c9a84c; }
+
+.form-heading {
+  font-family: 'Archivo', sans-serif;
+  font-size: 22px;
+  font-weight: 300;
+  color: #111827;
+  margin-bottom: 36px;
+  line-height: 1;
+}
+
+.field-label {
+  font-family: 'Archivo', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.forgot-link {
+  font-family: 'Archivo', sans-serif;
+  font-size: 11px;
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.forgot-link:hover { color: #6b7280; }
+
+.input-line {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 0 10px 0;
+  font-family: 'Archivo', sans-serif;
+  font-size: 13px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-line:focus { border-bottom-color: #c9a84c; }
+.input-line::placeholder { color: #d1d5db; }
+
+.form-fields { display: flex; flex-direction: column; gap: 30px; }
+.form-fields--register { gap: 26px; }
+
+.auth-hint {
+  font-family: 'Archivo', sans-serif;
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 8px;
+}
+
+.submit-btn {
+  margin-top: 44px;
+  width: 100%;
+  background: #c9a84c;
+  border: none;
+  color: #0a0f1e;
+  font-family: 'Archivo', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  padding: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.submit-btn:hover { background: #d4b862; }
+.submit-btn--register { margin-top: 36px; }
+
+.alt-link-row {
+  margin-top: 28px;
+  text-align: center;
+  font-family: 'Archivo', sans-serif;
+  font-size: 12px;
+  color: #9ca3af;
+}
+.alt-link {
+  color: #6b7280;
+  text-decoration: none;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.alt-link:hover { color: #374151; text-decoration: underline; text-decoration-color: rgba(201,168,76,0.5); }
+
+.flash { padding: 9px 12px; border-radius: 4px; font-size: 12.5px; margin-bottom: 16px; }
+.flash-error { background: #fdeaea; color: #dc2626; }
+.flash-info  { background: #eff6ff; color: #374151; }
+
+@media (max-width: 720px) {
+  .auth-root { flex-direction: column; }
+  .lp { width: 100%; min-height: 200px; flex: none; padding: 36px 28px 28px; }
+  .lp-art-zone { top: 10%; bottom: 18%; }
+  .rp { padding: 36px 28px; }
+}

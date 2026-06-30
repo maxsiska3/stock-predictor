@@ -1,9 +1,15 @@
 # app.py — Flask web server for Kouros
 # Routes, auth, template rendering, and dashboard data assembly.
 
+import logging
 import os
 from collections import Counter
 from datetime import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
