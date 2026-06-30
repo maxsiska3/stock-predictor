@@ -11,11 +11,8 @@ body{
 
 #app-root{
   --table-col-gap:10px;
-  /* Shared 25-column grid — watchlist & funds use identical tracks. */
-  /* P/E, EPS, Beta, Sector (watchlist) / Avg EPS, Beta, Dominant Sector (funds) are
-     hidden — Yahoo's free fundamentals endpoint is unreliable from hosted IPs. */
-  --watchlist-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
-  --funds-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
+  /* Shared 22-column grid — watchlist & funds use identical tracks so columns align. */
+  --dashboard-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 54px;
   --dashboard-panel-body-min:300px;
   --sub-bg:var(--panel);
   --muted2:var(--muted);
@@ -127,6 +124,19 @@ body{
 .dashboard-panel--funds .dashboard-table-wrap{
   display:flex;flex-direction:column;
 }
+.dashboard-panel--watchlist .panel-header-row,
+.dashboard-panel--funds .panel-header-row{
+  position:sticky;left:0;z-index:4;
+  background:var(--panel);
+  width:min(100%,calc(100vw - 316px));
+  box-sizing:border-box;
+}
+@media(max-width:1100px){
+  .dashboard-panel--watchlist .panel-header-row,
+  .dashboard-panel--funds .panel-header-row{
+    width:min(100%,calc(100vw - 28px));
+  }
+}
 .dashboard-panel--watchlist .dashboard-table-inner,
 .dashboard-panel--funds .dashboard-table-inner{
   display:flex;flex-direction:column;
@@ -201,9 +211,8 @@ body{
 .watchlist-grid,.funds-grid{
   display:grid;align-items:center;
   column-gap:var(--table-col-gap);
+  grid-template-columns:var(--dashboard-cols);
 }
-.watchlist-grid{grid-template-columns:var(--watchlist-cols);}
-.funds-grid{grid-template-columns:var(--funds-cols);}
 .watchlist-grid>*,.funds-grid>*{
   display:flex;justify-content:center;align-items:center;
   width:100%;min-width:0;
@@ -409,6 +418,20 @@ body{
   padding:6px 12px 4px;font-size:10.5px;
   color:var(--muted);letter-spacing:.02em;flex:none;
 }
+.fund-selected-chips{
+  display:flex;flex-wrap:wrap;gap:6px;
+  padding:8px 14px 0;flex:none;
+}
+.fund-ticker-chip{
+  display:inline-flex;align-items:center;
+  padding:4px 10px;border-radius:999px;
+  border:1px solid var(--line2);background:var(--sub-bg);
+  color:var(--text);font-size:11.5px;font-weight:600;
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+}
+.fund-ticker-chip:hover{
+  color:var(--down);border-color:var(--down-bg);background:var(--down-bg);
+}
 
 /* Scrollable results list */
 .ticker-search-results{
@@ -492,7 +515,10 @@ body{
 .field-note{font-size:12.5px;color:var(--muted);letter-spacing:.01em}
 
 /* Trailing row action — remove ticker / future fund actions */
-.col-action{justify-content:center!important;padding:0 4px}
+.col-action{
+  justify-content:center!important;padding:0 4px;
+  display:flex!important;gap:2px;flex-wrap:nowrap;
+}
 .row-action-btn{
   display:none;width:22px;height:22px;padding:0;
   border:none;border-radius:4px;background:transparent;
@@ -500,7 +526,9 @@ body{
   cursor:pointer;align-items:center;justify-content:center;
   transition:color .15s,background .15s;
 }
+.row-action-btn--edit{font-size:13px}
 .row-action-btn:hover{color:var(--down);background:var(--down-bg)}
+.row-action-btn--edit:hover{color:var(--accent);background:var(--accent-soft)}
 .table-row:hover .row-action-btn{display:inline-flex}
 
 .watchlist-empty{
