@@ -4,19 +4,35 @@
 # check and add. Raw search text is NEVER added to the watchlist — only symbols
 # picked from these results (enforced in dashboard.js + add_tickers).
 
+import json
+import logging
+import re
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta
 
 import yfinance as yf
+
+from utils.yfinance_setup import configure_yfinance
+
+configure_yfinance()
+
+logger = logging.getLogger(__name__)
 
 # Block non-investable types. Using a blocklist (not allowlist) because yfinance
 # returns different quoteType strings across versions (e.g. "EQUITY", "equity",
 # "commonStock"). Blocking known noise types is more robust.
 _BLOCKED_QUOTE_TYPES = {"INDEX", "CURRENCY", "CRYPTOCURRENCY", "FUTURE", "OPTION", "FOREX"}
 
+_TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.\-^=]{0,9}$")
+
 # In-memory cache — same idea as utils/market.py (lives until server restarts).
 # We cache symbol+name rows from yfinance, NOT in_watchlist (that changes when user adds/removes).
 _search_cache = {}
 _SEARCH_TTL = timedelta(minutes=5)
+
+_YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
+_YAHOO_UA = "Mozilla/5.0 (compatible; Kouros/1.0; +https://github.com/maxsiska3/stock-predictor)"
 
 
 def _search_cache_key(query):
@@ -61,32 +77,81 @@ def _parse_quotes(quotes, limit):
             continue
         seen_symbols.add(symbol)
 
-        quote_type = (quote.get("quoteType") or "").upper()
+        quote_type = (quote.get("quoteType") or quote.get("typeDisp") or "").upper()
         if quote_type in _BLOCKED_QUOTE_TYPES:
             continue
 
-        name = quote.get("longname") or quote.get("shortname") or symbol
+        name = quote.get("longname") or quote.get("longName") or quote.get("shortname") or quote.get("shortName") or symbol
         rows.append({"symbol": symbol, "name": name})
 
     return rows
 
 
+def _yahoo_http_search(query, limit):
+    """Direct Yahoo search API — works when yfinance.Search is blocked on cloud hosts."""
+    params = urllib.parse.urlencode({
+        "q": query,
+        "quotesCount": limit * 2,
+        "newsCount": 0,
+    })
+    req = urllib.request.Request(
+        f"{_YAHOO_SEARCH_URL}?{params}",
+        headers={"User-Agent": _YAHOO_UA},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            payload = json.loads(resp.read().decode())
+        return _parse_quotes(payload.get("quotes") or [], limit)
+    except Exception as exc:
+        logger.warning("Yahoo HTTP search failed for %r: %s", query, exc)
+        return []
+
+
+def _yfinance_search(query, limit):
+    try:
+        response = yf.Search(query, max_results=limit * 2)
+        return _parse_quotes(response.quotes or [], limit)
+    except Exception as exc:
+        logger.warning("yfinance.Search failed for %r: %s", query, exc)
+        return []
+
+
+def _lookup_exact_symbol(symbol):
+    """Fallback when search returns nothing but input looks like a ticker symbol."""
+    try:
+        info = yf.Ticker(symbol).info or {}
+    except Exception as exc:
+        logger.warning("Ticker info lookup failed for %s: %s", symbol, exc)
+        return []
+
+    resolved = (info.get("symbol") or symbol).upper()
+    quote_type = (info.get("quoteType") or "").upper()
+    if quote_type in _BLOCKED_QUOTE_TYPES:
+        return []
+
+    if not info.get("regularMarketPrice") and not info.get("currentPrice") and not info.get("previousClose"):
+        return []
+
+    name = info.get("longName") or info.get("shortName") or resolved
+    return [{"symbol": resolved, "name": name}]
+
+
 def _fetch_rows(query, limit):
     """
-    Get symbol+name rows — from cache if fresh, otherwise yfinance.Search.
-    This is the slow/network part; only this result gets cached.
+    Get symbol+name rows — from cache if fresh, otherwise search providers.
     """
     cached = _get_cached_rows(query)
     if cached is not None:
         return cached[:limit]
 
-    try:
-        response = yf.Search(query, max_results=limit * 2)
-        quotes = response.quotes or []
-    except Exception:
-        return []
+    rows = _yfinance_search(query, limit)
+    if not rows:
+        rows = _yahoo_http_search(query, limit)
 
-    rows = _parse_quotes(quotes, limit)
+    symbol_guess = query.strip().upper()
+    if not rows and _TICKER_RE.match(symbol_guess):
+        rows = _lookup_exact_symbol(symbol_guess)
+
     _set_cached_rows(query, rows)
     return rows
 

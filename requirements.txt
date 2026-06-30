@@ -4,5 +4,5 @@ bcrypt
 gunicorn
 pandas
 scikit-learn
-yfinance
+yfinance>=0.2.54
 joblib

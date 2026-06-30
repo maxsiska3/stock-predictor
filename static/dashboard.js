@@ -66,8 +66,14 @@
 
       searchTimer = setTimeout(function () {
         fetch("/api/tickers/search?q=" + encodeURIComponent(q))
-          .then(function (r) { return r.json(); })
-          .then(function (data) { renderSearchResults(resultsEl, data.results || [], selected, updateCount); })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (res) {
+            if (!res.ok || res.data.error) {
+              renderPlaceholder(resultsEl, res.data.error || "Search failed — try again");
+              return;
+            }
+            renderSearchResults(resultsEl, res.data.results || [], selected, updateCount);
+          })
           .catch(function () { renderPlaceholder(resultsEl, "Search failed — try again"); });
       }, DEBOUNCE_MS);
     }
@@ -89,9 +95,13 @@
           if (!res.ok) { messageEl.textContent = res.data.error || "Could not add tickers"; resetAdding(); return; }
           if (res.data.added && res.data.added.length > 0) { window.location.reload(); return; }
           var parts = [];
-          if (res.data.skipped && res.data.skipped.length) parts.push(res.data.skipped.length + " already on list");
-          if (res.data.failed && res.data.failed.length)   parts.push(res.data.failed.length + " failed");
-          messageEl.textContent = parts.join(", ") || "Nothing was added";
+          if (res.data.skipped && res.data.skipped.length) {
+            parts.push(res.data.skipped.map(function (s) { return s.symbol + ": " + s.reason; }).join("; "));
+          }
+          if (res.data.failed && res.data.failed.length) {
+            parts.push(res.data.failed.map(function (f) { return f.symbol + ": " + f.reason; }).join("; "));
+          }
+          messageEl.textContent = parts.join(" · ") || "Nothing was added";
           resetAdding();
         })
         .catch(function () { messageEl.textContent = "Request failed — try again"; resetAdding(); });
@@ -186,9 +196,13 @@
       searchTimer = setTimeout(function () {
         // context=fund so nothing is pre-marked as "already added"
         fetch("/api/tickers/search?q=" + encodeURIComponent(q) + "&context=fund")
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            renderSearchResults(resultsEl, data.results || [], selected, updateCount);
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (res) {
+            if (!res.ok || res.data.error) {
+              renderPlaceholder(resultsEl, res.data.error || "Search failed — try again");
+              return;
+            }
+            renderSearchResults(resultsEl, res.data.results || [], selected, updateCount);
           })
           .catch(function () { renderPlaceholder(resultsEl, "Search failed — try again"); });
       }, DEBOUNCE_MS);
