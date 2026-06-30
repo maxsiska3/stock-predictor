@@ -389,7 +389,10 @@ def _load_dashboard_context(user_id):
     user_funds    = get_user_funds(user_id)
     positions     = get_all_positions(user_id)
     tickers       = get_user_fetch_tickers(user_id)
-    market_data   = fetch_market_data(tickers)
+    # wait=False: page loads always read from cache instantly — the background
+    # refresh thread (utils/refresh.py) is solely responsible for talking to
+    # yfinance, so a slow/rate-limited Yahoo response never stalls a request.
+    market_data   = fetch_market_data(tickers, wait=False)
 
     watchlist_rows, _ = _split_watchlist_rows(market_data, user_id)
     watchlist_rows    = _enrich_with_positions(watchlist_rows, positions)

@@ -2,10 +2,12 @@ import joblib as jl
 import yfinance as yf
 import pandas as pd
 from utils.features import compute_features, FEATURE_COLS
+from utils.yfinance_setup import get_yf_session
 
 # Load Model
 scaler = jl.load("model/scaler.pkl")
 trained_model = jl.load("model/trained_model.pkl")
+_SESSION = get_yf_session()
 
 
 def _flatten_download(df):
@@ -21,7 +23,7 @@ def predict_stock(ticker, history_df=None) -> tuple:
         raw_df = history_df.copy()
     else:
         start = pd.Timestamp.now() - pd.DateOffset(months=6)
-        raw_df = _flatten_download(yf.download(ticker, start=start, progress=False))
+        raw_df = _flatten_download(yf.download(ticker, start=start, progress=False, session=_SESSION, threads=False))
 
     df_features = compute_features(raw_df)
 

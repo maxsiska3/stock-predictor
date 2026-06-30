@@ -5,4 +5,5 @@ gunicorn
 pandas
 scikit-learn
 yfinance>=0.2.54
+curl_cffi
 joblib
