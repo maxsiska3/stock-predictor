@@ -24,6 +24,7 @@ from utils.fund_store import (
     clear_fund_holding_position,
     create_fund,
     delete_fund,
+    update_fund,
     get_user_funds,
     remove_ticker_from_fund,
     upsert_fund_holding_position,
@@ -304,6 +305,7 @@ def build_funds(market_data, user_funds):
                 "direction": 0, "avg_conf": None, "updated_at": updated_at,
                 "vs_spy": None, "vs_dow": None, "vs_nasdaq": None,
                 "holding_rows": [],
+                "symbols": [h["symbol"] for h in holdings_meta],
                 **position_totals,
             })
             continue
@@ -343,6 +345,7 @@ def build_funds(market_data, user_funds):
             "vs_dow": _vs_benchmark(pct_change, lookup, "DIA"),
             "vs_nasdaq": _vs_benchmark(pct_change, lookup, "QQQ"),
             "holding_rows": holding_rows,
+            "symbols": [h["symbol"] for h in holdings_meta],
             **position_totals,
         })
 
@@ -565,6 +568,22 @@ def api_funds_create():
     try:
         fund = create_fund(current_user.id, body.get("name"), body.get("tickers", []))
         return jsonify(fund), 201
+    except FundError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+
+@app.route("/api/funds/<int:fund_id>", methods=["PUT"])
+@login_required
+def api_funds_update(fund_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        fund = update_fund(
+            fund_id,
+            current_user.id,
+            body.get("name"),
+            body.get("tickers", []),
+        )
+        return jsonify(fund)
     except FundError as e:
         return jsonify({"error": e.message}), e.status_code
 

@@ -3,7 +3,7 @@
  *
  * Features:
  *   - Add/remove watchlist tickers (search modal)
- *   - Create/delete funds (fund modal with watchlist picker)
+ *   - Create/edit/delete funds (fund modal with ticker search)
  *   - Edit/delete positions per ticker (position modal)
  *   - Profile menu toggle
  */
@@ -151,9 +151,11 @@
   (function initAddFund() {
     var addBtn       = $("add-fund-btn");
     var modal        = $("add-fund-modal");
+    var titleEl      = $("add-fund-title");
     var nameInput    = $("fund-name-input");
     var searchInput  = $("fund-ticker-search");
     var resultsEl    = $("fund-ticker-results");
+    var chipsEl      = $("fund-selected-chips");
     var messageEl    = $("add-fund-message");
     var confirmBtn   = $("add-fund-confirm");
     var cancelBtn    = $("add-fund-cancel");
@@ -164,14 +166,76 @@
 
     var selected = new Set();
     var searchTimer = null;
+    var editingFundId = null;
 
-    function openModal() {
+    function renderFundChips() {
+      if (!chipsEl) return;
+      chipsEl.innerHTML = "";
+      if (selected.size === 0) {
+        chipsEl.hidden = true;
+        return;
+      }
+      chipsEl.hidden = false;
+      Array.from(selected).sort().forEach(function (sym) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "fund-ticker-chip";
+        chip.textContent = sym + " ×";
+        chip.setAttribute("aria-label", "Remove " + sym);
+        chip.addEventListener("click", function () {
+          selected.delete(sym);
+          updateCount();
+          refreshSearchResults();
+        });
+        chipsEl.appendChild(chip);
+      });
+    }
+
+    function refreshSearchResults() {
+      var q = searchInput.value.trim();
+      if (!q) {
+        renderPlaceholder(resultsEl, selected.size
+          ? "Search to add more symbols"
+          : "Search a symbol to add it to this fund");
+        return;
+      }
+      onSearchInput();
+    }
+
+    function resetModalMode() {
+      editingFundId = null;
+      if (titleEl) titleEl.textContent = "Create Fund";
+      confirmBtn.textContent = "Create Fund";
+    }
+
+    function openCreateModal() {
+      resetModalMode();
       modal.hidden = false;
       selected.clear();
       nameInput.value = "";
       searchInput.value = "";
       messageEl.textContent = "";
+      confirmBtn.disabled = false;
+      renderFundChips();
       renderPlaceholder(resultsEl, "Search a symbol to add it to this fund");
+      updateCount();
+      setTimeout(function () { nameInput.focus(); }, 50);
+    }
+
+    function openEditModal(fundId, fundName, tickers) {
+      editingFundId = fundId;
+      if (titleEl) titleEl.textContent = "Edit Fund";
+      confirmBtn.textContent = "Save Changes";
+      modal.hidden = false;
+      selected = new Set(tickers || []);
+      nameInput.value = fundName || "";
+      searchInput.value = "";
+      messageEl.textContent = "";
+      confirmBtn.disabled = false;
+      renderFundChips();
+      renderPlaceholder(resultsEl, selected.size
+        ? "Search to add more symbols"
+        : "Search a symbol to add it to this fund");
       updateCount();
       setTimeout(function () { nameInput.focus(); }, 50);
     }
@@ -179,22 +243,29 @@
     function closeModal() {
       modal.hidden = true;
       selected.clear();
+      resetModalMode();
+      renderFundChips();
       if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
     }
 
     function updateCount() {
       var n = selected.size;
-      countEl.textContent = n + " selected";
+      countEl.textContent = n + (n === 1 ? " holding selected" : " holdings selected");
+      renderFundChips();
     }
 
     function onSearchInput() {
       var q = searchInput.value.trim();
       messageEl.textContent = "";
       if (searchTimer) clearTimeout(searchTimer);
-      if (!q) { renderPlaceholder(resultsEl, "Search a symbol to add it to this fund"); return; }
+      if (!q) {
+        renderPlaceholder(resultsEl, selected.size
+          ? "Search to add more symbols"
+          : "Search a symbol to add it to this fund");
+        return;
+      }
 
       searchTimer = setTimeout(function () {
-        // context=fund so nothing is pre-marked as "already added"
         fetch("/api/tickers/search?q=" + encodeURIComponent(q) + "&context=fund")
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
           .then(function (res) {
@@ -208,23 +279,27 @@
       }, DEBOUNCE_MS);
     }
 
-    function onConfirmCreate() {
+    function onConfirmSave() {
       var name = (nameInput.value || "").trim();
       if (!name) { messageEl.textContent = "Please enter a fund name"; nameInput.focus(); return; }
-      confirmBtn.textContent = "Creating…";
+      var savingLabel = editingFundId ? "Saving…" : "Creating…";
+      confirmBtn.textContent = savingLabel;
       confirmBtn.disabled = true;
       messageEl.textContent = "";
 
-      fetch("/api/funds", {
-        method: "POST",
+      var url = editingFundId ? "/api/funds/" + editingFundId : "/api/funds";
+      var method = editingFundId ? "PUT" : "POST";
+
+      fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name, tickers: Array.from(selected) }),
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
           if (!res.ok) {
-            messageEl.textContent = res.data.error || "Could not create fund";
-            confirmBtn.textContent = "Create Fund";
+            messageEl.textContent = res.data.error || (editingFundId ? "Could not save fund" : "Could not create fund");
+            confirmBtn.textContent = editingFundId ? "Save Changes" : "Create Fund";
             confirmBtn.disabled = false;
           } else {
             window.location.reload();
@@ -232,21 +307,36 @@
         })
         .catch(function () {
           messageEl.textContent = "Request failed — try again";
-          confirmBtn.textContent = "Create Fund";
+          confirmBtn.textContent = editingFundId ? "Save Changes" : "Create Fund";
           confirmBtn.disabled = false;
         });
     }
 
-    addBtn.addEventListener("click", openModal);
+    addBtn.addEventListener("click", openCreateModal);
     if (cancelBtn)  cancelBtn.addEventListener("click", closeModal);
     if (cancelClose) cancelClose.addEventListener("click", closeModal);
     modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !modal.hidden) closeModal(); });
     searchInput.addEventListener("input", onSearchInput);
     searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
-    confirmBtn.addEventListener("click", onConfirmCreate);
+    confirmBtn.addEventListener("click", onConfirmSave);
     nameInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); searchInput.focus(); }
+    });
+
+    document.querySelectorAll(".edit-fund-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var fundId = btn.getAttribute("data-fund-id");
+        var fundRow = btn.closest("[data-fund-id]");
+        var fundNameEl = fundRow ? fundRow.querySelector(".fund-name-text") : null;
+        var fundName = fundNameEl ? fundNameEl.textContent : "";
+        var tickers = [];
+        try {
+          tickers = JSON.parse(btn.getAttribute("data-fund-tickers") || "[]");
+        } catch (err) { tickers = []; }
+        openEditModal(fundId, fundName, tickers);
+      });
     });
 
     /* Delete fund buttons */

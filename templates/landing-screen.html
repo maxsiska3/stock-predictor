@@ -107,7 +107,7 @@
     {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
     {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
     {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
-    <div class="row {% if fund_id %}funds-grid fund-holding-row{% else %}watchlist-grid{% endif %} table-row" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
+    <div class="row watchlist-grid table-row{% if fund_id %} fund-holding-row{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
       <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}{{ stock.ticker }}</span>
       <span class="num">${{ "%.2f"|format(stock.price) }}</span>
       <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
@@ -116,7 +116,7 @@
       <div class="day-chart" aria-hidden="true"></div>
       <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
-      {% if fund_id %}<span aria-hidden="true"></span>{% endif %}
+      <span class="num"><span class="na">—</span></span>
       <span class="num">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span class="na">—</span>{% endif %}</span>
       <span class="num">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span class="na">—</span>{% endif %}</span>
@@ -164,6 +164,7 @@
               <span>Day Graph</span>
               <span>52 Week High</span>
               <span>52 Week Low</span>
+              <span>Outlook</span>
               <span>RSI</span>
               <span>Bollinger Pos</span>
               <span>Volatility</span>
@@ -287,6 +288,7 @@
                 <span class="num {% if fund.gain_loss is not none %}{% if fund.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if fund.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(fund.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num {% if fund.return_pct is not none %}{% if fund.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if fund.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(fund.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="col-action">
+                  <button type="button" class="row-action-btn row-action-btn--edit edit-fund-btn" data-fund-id="{{ fund.id }}" data-fund-tickers='{{ fund.symbols | tojson }}' aria-label="Edit {{ fund.name }}">✎</button>
                   <button type="button" class="row-action-btn remove-fund-btn" data-fund-id="{{ fund.id }}" aria-label="Delete {{ fund.name }}">×</button>
                 </span>
               </div>
@@ -408,6 +410,7 @@
         <input type="text" id="fund-name-input" placeholder="Fund name (e.g. Growth Portfolio)…" autocomplete="off" maxlength="60">
         <input type="text" id="fund-ticker-search" placeholder="Search symbols to add…" autocomplete="off" spellcheck="false">
       </div>
+      <div id="fund-selected-chips" class="fund-selected-chips" hidden></div>
       <p class="modal-hint">Click a result to select it — search any symbol, not just your watchlist</p>
       <div id="fund-ticker-results" class="ticker-search-results"></div>
       <p id="add-fund-message" class="modal-message"></p>

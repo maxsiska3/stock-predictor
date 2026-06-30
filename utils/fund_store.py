@@ -109,6 +109,75 @@ def create_fund(user_id, name, tickers):
     ]}
 
 
+def update_fund(fund_id, user_id, name, tickers):
+    """Rename a fund and sync its holdings to the given ticker list."""
+    name = str(name or "").strip()
+    if not name:
+        raise FundError("Fund name is required")
+
+    clean = _clean_tickers(tickers)
+    if len(clean) > MAX_FUND_TICKERS:
+        raise FundError(f"Maximum {MAX_FUND_TICKERS} tickers per fund")
+
+    with get_connection() as conn:
+        fund = conn.execute(
+            "SELECT id FROM user_funds WHERE id = ? AND user_id = ?",
+            (fund_id, user_id),
+        ).fetchone()
+        if not fund:
+            raise FundError("Fund not found", 404)
+
+        duplicate = conn.execute(
+            "SELECT id FROM user_funds WHERE user_id = ? AND LOWER(name) = LOWER(?) AND id != ?",
+            (user_id, name, fund_id),
+        ).fetchone()
+        if duplicate:
+            raise FundError(f"A fund named '{name}' already exists")
+
+        conn.execute(
+            "UPDATE user_funds SET name = ? WHERE id = ?", (name, fund_id)
+        )
+
+        current_rows = conn.execute(
+            "SELECT symbol FROM fund_holdings WHERE fund_id = ? ORDER BY id ASC",
+            (fund_id,),
+        ).fetchall()
+        current = {r["symbol"] for r in current_rows}
+        desired = set(clean)
+
+        for sym in current - desired:
+            conn.execute(
+                "DELETE FROM fund_holdings WHERE fund_id = ? AND symbol = ?",
+                (fund_id, sym),
+            )
+
+        for sym in desired - current:
+            conn.execute(
+                "INSERT OR IGNORE INTO fund_holdings (fund_id, symbol) VALUES (?, ?)",
+                (fund_id, sym),
+            )
+
+        conn.commit()
+
+        rows = conn.execute(
+            """
+            SELECT symbol, shares, avg_cost
+            FROM fund_holdings WHERE fund_id = ? ORDER BY id ASC
+            """,
+            (fund_id,),
+        ).fetchall()
+
+    return {
+        "id": fund_id,
+        "name": name,
+        "tickers": [r["symbol"] for r in rows],
+        "holdings": [
+            {"symbol": r["symbol"], "shares": r["shares"], "avg_cost": r["avg_cost"]}
+            for r in rows
+        ],
+    }
+
+
 def rename_fund(fund_id, user_id, new_name):
     """Rename a fund. Raises FundError if not found or name already in use."""
     new_name = str(new_name or "").strip()
