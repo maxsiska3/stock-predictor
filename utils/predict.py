@@ -7,13 +7,22 @@ from utils.features import compute_features, FEATURE_COLS
 scaler = jl.load("model/scaler.pkl")
 trained_model = jl.load("model/trained_model.pkl")
 
-def predict_stock(ticker) -> tuple:
 
-    # Load 6 Months of Data
-    start = pd.Timestamp.now() - pd.DateOffset(months=6)
-    raw_df = yf.download(ticker, start=start)
-    raw_df = pd.DataFrame(raw_df)
-    raw_df.columns = raw_df.columns.get_level_values(0)
+def _flatten_download(df):
+    raw_df = pd.DataFrame(df)
+    if isinstance(raw_df.columns, pd.MultiIndex):
+        raw_df.columns = raw_df.columns.get_level_values(0)
+    return raw_df
+
+
+def predict_stock(ticker, history_df=None) -> tuple:
+    """Predict next-day direction. Pass history_df when market.py already fetched OHLCV."""
+    if history_df is not None and len(history_df) >= 30:
+        raw_df = history_df.copy()
+    else:
+        start = pd.Timestamp.now() - pd.DateOffset(months=6)
+        raw_df = _flatten_download(yf.download(ticker, start=start, progress=False))
+
     df_features = compute_features(raw_df)
 
     # Grab Last Row

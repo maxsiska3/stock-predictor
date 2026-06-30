@@ -16,102 +16,13 @@ Kouros is a multi-user hosted dashboard with per-account data in SQLite.
 | **Data** | SQLite (`kouros.db`): users, watchlist, positions, user_funds, fund_holdings (with shares/avg_cost). |
 | **Watchlist** | Live search add/remove modal, Stocks / ETFs sections, full data table + ML prediction badge. |
 | **Positions** | Per-ticker shares, avg cost, mkt value, gain/loss, return % — click Shares to edit. |
-| **Funds** | User-created funds via search modal; expandable rows with per-holding watchlist columns; fund-level position aggregates; benchmark dropdown (S&P / Dow / NASDAQ / Russell) shown under Chg %. |
-| **Sidebar** | Movers & predictions + sector exposure chart (labeled *from your watchlist*). |
-| **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching. |
-| **Design** | Light / Dark / Kouros themes; shared 24-column grid for watchlist & funds alignment. |
+| **Funds** | User-created funds via search modal; expandable rows with per-holding watchlist columns; fund-level position aggregates; value-weighted Chg % / $ Change. |
+| **vs Index** | Shared **vs** column on watchlist + funds (S&P / Dow / NASDAQ header dropdown; synced via `localStorage`). |
+| **Sidebar** | Gainers & losers (positive-only / negative-only) + sector exposure chart (labeled *from your watchlist*). |
+| **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching, SQLite WAL + write retries, ticker search HTTP fallback on Render. |
+| **Design** | Light / Dark / Kouros themes; shared 25-column grid; page scroll with unified horizontal scroll (`dashboard-hscroll-track`). |
 
-**Not yet:** detail screens, digest, market pulse, movers/predictions scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
-
----
-
-## Phase 0 — Multi-user Foundation ✅
-
-**Goal:** multiple people can log in, each with their own data. The app is stable and deployable.
-
-**Status:** Complete (deploy to Render may need env/disk verification per environment).
-
----
-
-#### 0.1 — User Auth ✅
-- Email + password login (Flask-Login + bcrypt)
-- Register / login / logout screens
-- Session management
-- Password stored as bcrypt hash, never plain text
-- Protected routes — redirect to login if not authenticated
-
-**Files:** `utils/auth.py`, `templates/login.html`, `templates/register.html`, `static/auth.css`, `templates/partials/auth-brand-panel.html`
-
----
-
-#### 0.2 — Per-user Data Storage ✅
-- `users` — id, email, password_hash, display_name, created_at
-- `watchlist` — user_id, symbol, added_at
-- `positions` — user_id, symbol, shares, avg_cost, purchased_at
-- `user_funds` — user_id, name, created_at
-- `fund_holdings` — fund_id, symbol, shares, avg_cost
-
-**Files:** `utils/db.py`, `utils/watchlist_store.py`, `utils/position_store.py`, `utils/fund_store.py`
-
----
-
-#### 0.3 — Production Server Config ✅
-- Gunicorn + `render.yaml`
-- `SECRET_KEY` from environment variable
-- Background thread refreshing market data every 60s (`utils/refresh.py`)
-
----
-
-#### 0.4 — Deploy to Render ✅ (configured)
-- GitHub repo connected
-- Env vars: `SECRET_KEY`, `DATABASE_PATH`
-- Persistent disk for SQLite
-- ML model artifacts committed (`model/*.pkl`)
-
----
-
-## Phase 1 — Portfolio Tracker ✅
-
-**Goal:** turn a watchlist into a real portfolio. Users track what they own and at what cost.
-
-**Status:** Complete.
-
----
-
-### 1.1 — Cost Basis & Positions ✅
-- `positions` table — user_id, symbol, shares, avg_cost, purchased_at
-- Watchlist columns: **Shares**, **Avg Cost**, **Market Value**, **Gain/Loss**, **Return %**
-- Click Shares / Avg Cost to open position edit modal
-- API: `GET/PUT/DELETE /api/positions`
-
-**Files:** `utils/position_store.py`
-
----
-
-### 1.2 — Dynamic Funds ✅
-- User-created funds with name + ticker search (any symbol, not watchlist-only)
-- `user_funds` + `fund_holdings` tables
-- "+ Add Fund" modal, delete fund on row hover
-- Expandable fund rows — each holding uses the same columns as the watchlist
-- Per-holding shares/avg cost in fund (`fund_holdings.shares`, `fund_holdings.avg_cost`)
-- Fund summary row aggregates portfolio totals in trailing position columns
-- API: `GET/POST/DELETE /api/funds`, ticker add/remove, `PUT/DELETE .../holdings/<symbol>/position`
-
-**Files:** `utils/fund_store.py`
-
----
-
-### 1.3 — Sector Exposure Chart ✅
-- Horizontal bar chart in sidebar
-- Grouped by sector from watchlist holdings
-- Subtitle: *from your watchlist*
-
----
-
-### 1.4 — Fund vs Index Benchmark ✅
-- Always fetch SPY, DIA, QQQ, IWM (`utils/config.py` → `BENCHMARK_TICKERS`)
-- Funds panel header dropdown: S&P 500, Dow Jones, NASDAQ, Russell 2000
-- Selected benchmark shown under fund **Chg %** (e.g. `+0.42% vs`); choice persisted in `localStorage`
+**Not yet:** detail screens, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
 
 ---
 
@@ -169,9 +80,9 @@ Clicking any ticker in the watchlist or funds table navigates here.
 ---
 
 ### 2.2 — Fund Detail Screen
-Route: `/fund/<fund_name>`
+Route: `/fund/<fund_id>`
 
-Clicking a fund name opens its detail view.
+Clicking a fund summary row navigates here.
 
 **Layout:**
 ```
@@ -492,8 +403,6 @@ Today the sidebar always uses **your watchlist**. Add a dropdown on the Movers &
 
 Market Pulse (3 index numbers) gives macro context without competing with Yahoo Finance on breadth. Earnings in the sidebar is immediately actionable.
 
-**Partially done:** Sector exposure chart (watchlist only); movers/predictions still watchlist-only.
-
 ---
 
 ## Phase 7 — Polish & Alerts
@@ -511,21 +420,9 @@ Once the core is solid:
 ## Full Build Order
 
 ```
-Phase 0 — Foundation ✅
-  0.1  Auth (register, login, logout)
-  0.2  Per-user DB (SQLite)
-  0.3  Production server config (Gunicorn, env vars, background refresh)
-  0.4  Deploy to Render (configured)
-
-Phase 1 — Portfolio Tracker ✅
-  1.1  Cost basis + positions (watchlist + fund holdings)
-  1.2  Dynamic funds (search modal, expandable rows, per-stock positions)
-  1.3  Sector exposure chart (sidebar, watchlist)
-  1.4  Fund vs index benchmark (dropdown: SPY / DIA / QQQ / IWM)
-
 Phase 2 — Detail Screens
-  2.1  Stock detail screen (chart, position, notes, earnings)
-  2.2  Fund detail screen (holdings, chart, sector breakdown)
+  2.1  Stock detail screen
+  2.2  Fund detail screen
 
 Phase 3 — Model Improvement
   3.1  Confidence threshold filter (≥55% only)
@@ -549,7 +446,6 @@ Phase 6 — Sidebar Upgrade
   6.1  Movers & predictions scope dropdown (watchlist | funds)
   6.2  Market Pulse (SPY / QQQ / DIA)
   6.3  Earnings this week (from active scope)
-  (sector exposure chart — done for watchlist)
 
 Phase 7 — Polish
   Price alerts
@@ -584,7 +480,7 @@ app.py
 utils/
   auth.py                  User model, login helpers
   config.py                BENCHMARK_TICKERS, BENCHMARK_OPTIONS
-  db.py                    SQLite schema + migrations
+  db.py                    SQLite schema + migrations (WAL, commit retry)
   market.py                yfinance batch fetch, cache, row builder
   predict.py               ML inference
   features.py              Technical indicators
@@ -593,6 +489,7 @@ utils/
   fund_store.py            Per-user fund CRUD + holding positions
   refresh.py               Background cache warming
   ticker_search.py         Live symbol search
+  yfinance_setup.py        yfinance init + Render search fallback
 model/
   trained_model.pkl
   scaler.pkl

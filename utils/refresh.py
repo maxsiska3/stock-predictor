@@ -15,6 +15,8 @@ from utils.market import fetch_market_data
 logger = logging.getLogger(__name__)
 
 REFRESH_INTERVAL_SEC = 60
+# Let Gunicorn bind and pass Render health checks before the first yfinance burst.
+STARTUP_DELAY_SEC = 20
 
 
 def get_union_fetch_tickers():
@@ -26,6 +28,7 @@ def get_union_fetch_tickers():
 
 
 def _refresh_loop():
+    time.sleep(STARTUP_DELAY_SEC)
     while True:
         try:
             tickers = get_union_fetch_tickers()

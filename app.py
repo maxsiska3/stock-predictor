@@ -404,6 +404,11 @@ def _load_dashboard_context(user_id):
 
 # ── Auth routes ─────────────────────────────────────────────
 
+@app.route("/health")
+def health():
+    return "ok", 200
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
