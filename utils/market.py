@@ -2,9 +2,15 @@
 #
 # Batch-downloads yfinance data, computes indicators, runs ML predictions.
 # Per-ticker cache (60s TTL) so different users can share cached rows.
+#
+# Two independent caches:
+#   - price rows  (price/volume/technicals) — short TTL, refreshed every cycle
+#   - fundamentals (.info: sector/P-E/EPS/beta) — long TTL, rarely change
+# This matters because `.info` is the slowest, most rate-limit-prone yfinance
+# call. Caching it for hours instead of seconds is what keeps the dashboard
+# both fast and populated once warmed up.
 
 import logging
-import os
 import threading
 import time
 import traceback
@@ -13,9 +19,10 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 
-from utils.yfinance_setup import configure_yfinance
+from utils.yfinance_setup import configure_yfinance, get_yf_session
 
 configure_yfinance()
+_SESSION = get_yf_session()
 
 from utils.features import compute_features
 from utils.predict import predict_stock
@@ -23,20 +30,18 @@ from utils.predict import predict_stock
 logger = logging.getLogger(__name__)
 
 _cache = {"rows": {}, "updated_at": {}}
-_CACHE_TTL = timedelta(seconds=60)
+_CACHE_TTL = timedelta(seconds=90)
 
-# Render shares egress IPs — Yahoo rate-limits aggressively; pace serially.
-_HOSTED = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_PATH", "").startswith("/data/"))
-_YF_BATCH_SIZE = 1 if _HOSTED else 5
-_YF_PAUSE_SEC = 2.5 if _HOSTED else 0.75
-_YF_RATE_LIMIT_PAUSE = 15.0 if _HOSTED else 8.0
-_SKIP_INTRADAY = _HOSTED
 _info_cache = {}
-_INFO_CACHE_TTL = timedelta(minutes=30)
-_INFO_FAIL_TTL = timedelta(minutes=5 if _HOSTED else 2)
+_INFO_CACHE_TTL = timedelta(hours=4)
+_INFO_FAIL_TTL = timedelta(minutes=2)
+
+_YF_PAUSE_SEC = 0.4
+_RATE_LIMIT_BACKOFF_SEC = 12.0
 
 _fetch_lock = threading.Lock()
-_rate_limited_until = 0.0
+_price_cooldown_until = 0.0
+_info_cooldown_until = 0.0
 
 
 def clear_cache(tickers=None):
@@ -110,23 +115,27 @@ def _etf_display_fields(info, eps, beta, sector):
     return eps_note, beta_note, sector_display
 
 
-def _in_rate_limit_cooldown():
-    return time.time() < _rate_limited_until
+def _is_rate_limited(exc):
+    msg = str(exc).lower()
+    return "rate" in msg or "too many" in msg or "429" in msg
 
 
-def _set_rate_limit_cooldown(seconds=None):
-    global _rate_limited_until
-    pause = seconds if seconds is not None else _YF_RATE_LIMIT_PAUSE * 2
-    _rate_limited_until = time.time() + pause
-    logger.warning("yfinance cooldown for %.0fs", pause)
+def _in_cooldown(which):
+    return time.time() < (_price_cooldown_until if which == "price" else _info_cooldown_until)
+
+
+def _set_cooldown(which, seconds=_RATE_LIMIT_BACKOFF_SEC):
+    global _price_cooldown_until, _info_cooldown_until
+    until = time.time() + seconds
+    if which == "price":
+        _price_cooldown_until = until
+    else:
+        _info_cooldown_until = until
+    logger.warning("yfinance %s cooldown for %.0fs", which, seconds)
 
 
 def _ticker_info(ticker):
-    """Fetch fundamentals with cache, pause, and retry — Yahoo rate-limits .info on Render."""
-    if _in_rate_limit_cooldown():
-        cached = _info_cache.get(ticker)
-        return (cached or {}).get("info") or {}
-
+    """Fundamentals (.info) — cached for hours since sector/P-E/EPS/beta rarely change."""
     now = datetime.now()
     cached = _info_cache.get(ticker)
     if cached:
@@ -136,64 +145,43 @@ def _ticker_info(ticker):
         if not cached.get("info") and age < _INFO_FAIL_TTL:
             return {}
 
+    if _in_cooldown("info"):
+        return (cached or {}).get("info") or {}
+
     info = {}
-    max_attempts = 2 if _HOSTED else 3
-    for attempt in range(max_attempts):
-        try:
-            if attempt:
-                time.sleep(_YF_RATE_LIMIT_PAUSE)
-            else:
-                _yf_pause(1.0 if _HOSTED else 0.5)
-            fetched = yf.Ticker(ticker).info or {}
-            if fetched:
-                info = fetched
-                break
-        except Exception as exc:
-            logger.warning("ticker info failed for %s (attempt %d): %s", ticker, attempt + 1, exc)
-            if _is_rate_limited(exc):
-                _set_rate_limit_cooldown()
-                break
+    try:
+        time.sleep(_YF_PAUSE_SEC)
+        info = yf.Ticker(ticker, session=_SESSION).info or {}
+    except Exception as exc:
+        logger.warning("ticker info failed for %s: %s", ticker, exc)
+        if _is_rate_limited(exc):
+            _set_cooldown("info")
 
     _info_cache[ticker] = {"info": info, "at": now}
     return info
 
 
-def _yf_pause(seconds=None):
-    time.sleep(seconds if seconds is not None else _YF_PAUSE_SEC)
-
-
-def _is_rate_limited(exc):
-    msg = str(exc).lower()
-    return "rate" in msg or "too many" in msg or "429" in msg
-
-
 def _yf_download(tickers, **kwargs):
-    """yf.download with pacing, no parallel threads, and backoff on rate limits."""
+    """yf.download via the impersonated session, with one backoff retry on rate limits."""
     kwargs.setdefault("threads", False)
-    last_exc = None
+    kwargs.setdefault("session", _SESSION)
+    multi = not isinstance(tickers, str) and len(tickers) > 1
+
     for attempt in range(2):
         try:
             result = yf.download(tickers, progress=False, **kwargs)
-            if isinstance(tickers, str):
-                empty = result is None or result.empty
-            else:
-                empty = result is None or result.empty
-            if empty and attempt == 0:
-                _set_rate_limit_cooldown()
-                time.sleep(_YF_RATE_LIMIT_PAUSE)
+            if (result is None or result.empty) and not multi and attempt == 0:
+                # Single ticker came back empty — could be a genuine throttle.
+                time.sleep(_RATE_LIMIT_BACKOFF_SEC)
                 continue
-            _yf_pause()
             return result
         except Exception as exc:
-            last_exc = exc
             if _is_rate_limited(exc):
-                _set_rate_limit_cooldown()
+                _set_cooldown("price")
                 if attempt == 0:
-                    time.sleep(_YF_RATE_LIMIT_PAUSE)
+                    time.sleep(_RATE_LIMIT_BACKOFF_SEC)
                     continue
             raise
-    if last_exc:
-        raise last_exc
     return pd.DataFrame()
 
 
@@ -285,47 +273,27 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
 
 
 def _download_single(ticker):
-    """
-    Download timeframes for one ticker (crumb-safe fallback).
-    On hosted deploys skip 1m intraday — daily close is enough and saves API calls.
-    """
+    """Download all timeframes for one ticker individually (fallback for batch misses)."""
     daily = _slice_ticker(_yf_download(ticker, period="5d", interval="1d", auto_adjust=True), ticker)
-    if daily is None or daily.empty:
-        _set_rate_limit_cooldown()
-        raise ValueError(f"No daily data for {ticker}")
+    time.sleep(_YF_PAUSE_SEC)
+    intraday = _slice_ticker(_yf_download(ticker, period="1d", interval="1m", auto_adjust=True), ticker)
+    time.sleep(_YF_PAUSE_SEC)
     year = _slice_ticker(_yf_download(ticker, period="1y", interval="1d", auto_adjust=True), ticker)
-    intraday = None
-    if not _SKIP_INTRADAY:
-        intraday = _slice_ticker(_yf_download(ticker, period="1d", interval="1m", auto_adjust=True), ticker)
     return daily, intraday, year
 
 
-def _fetch_one_ticker(ticker):
-    """Serial fetch for one symbol — primary path on Render."""
-    if _in_rate_limit_cooldown():
-        return None
-    try:
-        daily, intraday, year = _download_single(ticker)
-        return _build_row(ticker, daily, intraday, year)
-    except Exception:
-        logger.error("Failed to fetch %s:\n%s", ticker, traceback.format_exc())
-        return None
-
-
-def _fetch_tickers_chunk(tickers):
-    """Batch-download a small chunk of tickers then build rows."""
+def _fetch_tickers_batch(tickers):
+    """
+    Batch-download all tickers in three calls total (daily/intraday/year), then
+    build rows. Tickers missing from the batch (bad symbol, mid-download hiccup)
+    are retried individually so one bad apple doesn't drop the rest of the list.
+    """
     if not tickers:
         return []
 
-    if _HOSTED:
-        rows = []
-        for ticker in tickers:
-            if _in_rate_limit_cooldown():
-                break
-            row = _fetch_one_ticker(ticker)
-            if row:
-                rows.append(row)
-        return rows
+    if _in_cooldown("price"):
+        logger.info("price cooldown active — skipping fetch for %d tickers", len(tickers))
+        return []
 
     daily_df    = _yf_download(tickers, period="5d", interval="1d", group_by="ticker", auto_adjust=True)
     intraday_df = _yf_download(tickers, period="1d", interval="1m", group_by="ticker", auto_adjust=True)
@@ -338,8 +306,10 @@ def _fetch_tickers_chunk(tickers):
         year     = _slice_ticker(year_df, ticker)
 
         if daily is None or daily.empty:
+            if _in_cooldown("price"):
+                continue
             logger.warning("Batch returned no data for %s — retrying individually", ticker)
-            time.sleep(_YF_RATE_LIMIT_PAUSE)
+            time.sleep(_YF_PAUSE_SEC)
             try:
                 daily, intraday, year = _download_single(ticker)
             except Exception:
@@ -355,52 +325,50 @@ def _fetch_tickers_chunk(tickers):
     return list_data
 
 
-def _fetch_tickers_batch(tickers):
-    """Batch-download tickers in small chunks to avoid Yahoo rate limits."""
-    if not tickers:
-        return []
-
-    list_data = []
-    for i in range(0, len(tickers), _YF_BATCH_SIZE):
-        chunk = tickers[i : i + _YF_BATCH_SIZE]
-        list_data.extend(_fetch_tickers_chunk(chunk))
-        if i + _YF_BATCH_SIZE < len(tickers):
-            _yf_pause()
-    return list_data
+def _refresh_tickers(tickers):
+    """Fetch + cache the given tickers. Caller must hold _fetch_lock."""
+    now = datetime.now()
+    for row in _fetch_tickers_batch(tickers):
+        sym = row["ticker"]
+        _cache["rows"][sym] = row
+        _cache["updated_at"][sym] = now
 
 
-def fetch_market_data(tickers):
+def fetch_market_data(tickers, wait=True):
     """
     Return market rows for tickers, using per-ticker cache when fresh.
-    Only stale or missing symbols hit yfinance.
+
+    wait=True (background refresh thread): blocks until fresh data is fetched.
+    wait=False (web request path): never blocks the request on yfinance latency.
+    Acquires the lock only if free; otherwise serves whatever is cached (even if
+    a little stale) so page loads stay fast regardless of yfinance conditions.
     """
     if not tickers:
         return []
 
     now = datetime.now()
-    need_fetch = []
-
-    for ticker in tickers:
-        updated = _cache["updated_at"].get(ticker)
-        if ticker in _cache["rows"] and updated and (now - updated) < _CACHE_TTL:
-            continue
-        need_fetch.append(ticker)
+    need_fetch = [
+        t for t in tickers
+        if not (t in _cache["rows"] and _cache["updated_at"].get(t) and (now - _cache["updated_at"][t]) < _CACHE_TTL)
+    ]
 
     if need_fetch:
-        with _fetch_lock:
-            if _in_rate_limit_cooldown():
-                logger.info("yfinance cooldown — serving cached data for %d stale tickers", len(need_fetch))
-            else:
-                still_need = []
-                now_locked = datetime.now()
-                for ticker in need_fetch:
-                    updated = _cache["updated_at"].get(ticker)
-                    if ticker in _cache["rows"] and updated and (now_locked - updated) < _CACHE_TTL:
-                        continue
-                    still_need.append(ticker)
-                for row in _fetch_tickers_batch(still_need):
-                    sym = row["ticker"]
-                    _cache["rows"][sym] = row
-                    _cache["updated_at"][sym] = now_locked
+        if wait:
+            with _fetch_lock:
+                still_need = [
+                    t for t in need_fetch
+                    if not (t in _cache["rows"] and _cache["updated_at"].get(t) and (datetime.now() - _cache["updated_at"][t]) < _CACHE_TTL)
+                ]
+                _refresh_tickers(still_need)
+        else:
+            # Only the tickers with NO cached row at all are worth a quick blocking
+            # fetch (e.g. user just added a ticker) — anything merely stale can
+            # wait for the background thread rather than slow down the request.
+            brand_new = [t for t in need_fetch if t not in _cache["rows"]]
+            if brand_new and _fetch_lock.acquire(blocking=False):
+                try:
+                    _refresh_tickers(brand_new)
+                finally:
+                    _fetch_lock.release()
 
     return [_cache["rows"][t] for t in tickers if t in _cache["rows"]]

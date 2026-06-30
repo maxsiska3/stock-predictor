@@ -13,9 +13,10 @@ from datetime import datetime, timedelta
 
 import yfinance as yf
 
-from utils.yfinance_setup import configure_yfinance
+from utils.yfinance_setup import configure_yfinance, get_yf_session
 
 configure_yfinance()
+_SESSION = get_yf_session()
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def _yahoo_http_search(query, limit):
 
 def _yfinance_search(query, limit):
     try:
-        response = yf.Search(query, max_results=limit * 2)
+        response = yf.Search(query, max_results=limit * 2, session=_SESSION)
         return _parse_quotes(response.quotes or [], limit)
     except Exception as exc:
         logger.warning("yfinance.Search failed for %r: %s", query, exc)
@@ -119,7 +120,7 @@ def _yfinance_search(query, limit):
 def _lookup_exact_symbol(symbol):
     """Fallback when search returns nothing but input looks like a ticker symbol."""
     try:
-        info = yf.Ticker(symbol).info or {}
+        info = yf.Ticker(symbol, session=_SESSION).info or {}
     except Exception as exc:
         logger.warning("Ticker info lookup failed for %s: %s", symbol, exc)
         return []

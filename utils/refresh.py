@@ -1,11 +1,11 @@
 # utils/refresh.py — background market data refresh
 #
-# Runs in a daemon thread so page loads usually hit warm per-ticker cache.
+# Runs in a daemon thread so page loads always hit a warm per-ticker cache —
+# the web request path never blocks on yfinance (see fetch_market_data wait=False).
 # Refreshes the union of all users' watchlists, dynamic fund holdings, and
-# SPY (always needed for the vs-S&P benchmark) every 60 seconds.
+# the benchmark index ETFs every cycle.
 
 import logging
-import os
 import threading
 import time
 
@@ -15,10 +15,12 @@ from utils.market import fetch_market_data
 
 logger = logging.getLogger(__name__)
 
-_HOSTED = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_PATH", "").startswith("/data/"))
-REFRESH_INTERVAL_SEC = 120 if _HOSTED else 60
-# Let Gunicorn pass health checks before the first yfinance burst on Render.
-STARTUP_DELAY_SEC = 60 if _HOSTED else 20
+# Stay comfortably under market._CACHE_TTL (90s) so rows are refreshed before
+# they go stale — otherwise web requests would see "stale" rows every cycle.
+REFRESH_INTERVAL_SEC = 60
+# Give Gunicorn a moment to bind and pass the first health check before the
+# initial yfinance burst.
+STARTUP_DELAY_SEC = 15
 
 
 def get_union_fetch_tickers():
@@ -35,7 +37,7 @@ def _refresh_loop():
         try:
             tickers = get_union_fetch_tickers()
             if tickers:
-                fetch_market_data(tickers)
+                fetch_market_data(tickers, wait=True)
                 logger.info("Market cache refreshed for %d tickers", len(tickers))
         except Exception:
             logger.exception("Background market refresh failed")
