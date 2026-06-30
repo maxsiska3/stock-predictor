@@ -4,8 +4,11 @@
 
 import yfinance as yf
 
+from utils.yfinance_setup import configure_yfinance
 from utils.db import get_connection, utc_now_iso
 from utils.market import clear_cache
+
+configure_yfinance()
 
 MAX_TICKERS = 25
 

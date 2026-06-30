@@ -10,6 +10,10 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 
+from utils.yfinance_setup import configure_yfinance
+
+configure_yfinance()
+
 from utils.features import compute_features
 from utils.predict import predict_stock
 

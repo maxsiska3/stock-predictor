@@ -16,7 +16,8 @@ from flask_login import LoginManager, current_user, login_required, login_user, 
 
 from utils.auth import AuthError, authenticate_user, create_user, get_user_by_id
 from utils.config import BENCHMARK_OPTIONS, BENCHMARK_TICKERS
-from utils.db import init_db
+from utils.db import DB_PATH, init_db
+from utils.yfinance_setup import configure_yfinance
 from utils.fund_store import (
     FundError,
     add_tickers_to_fund,
@@ -35,6 +36,7 @@ from utils.ticker_search import search_tickers
 from utils.watchlist_store import WatchlistError, add_tickers, load_watchlist, remove_ticker
 
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 app.config["REMEMBER_COOKIE_DURATION"] = 60 * 60 * 24 * 30  # 30 days
 
@@ -503,6 +505,9 @@ def api_watchlist_add():
         return jsonify(result)
     except WatchlistError as e:
         return jsonify({"error": e.message}), e.status_code
+    except Exception:
+        logger.exception("POST /api/watchlist failed for user %s", current_user.id)
+        return jsonify({"error": "Could not save tickers — try again"}), 500
 
 
 @app.route("/api/watchlist", methods=["DELETE"])
@@ -521,11 +526,14 @@ def api_watchlist_remove():
 @login_required
 def api_tickers_search():
     q = request.args.get("q", "")
-    # context=fund: don't mark anything as "already added" — any ticker can go in a fund
     context = request.args.get("context", "watchlist")
-    watchlist_syms = load_watchlist(current_user.id) if context == "watchlist" else []
-    results = search_tickers(q, watchlist_symbols=watchlist_syms)
-    return jsonify({"results": results})
+    try:
+        watchlist_syms = load_watchlist(current_user.id) if context == "watchlist" else []
+        results = search_tickers(q, watchlist_symbols=watchlist_syms)
+        return jsonify({"results": results})
+    except Exception:
+        logger.exception("GET /api/tickers/search failed for q=%r", q)
+        return jsonify({"results": [], "error": "Search unavailable — try again"}), 500
 
 
 # ── Funds API ────────────────────────────────────────────────
@@ -657,7 +665,9 @@ def predict():
 
 # ── Startup ─────────────────────────────────────────────────
 
+configure_yfinance()
 init_db()
+logger.info("SQLite database: %s", DB_PATH)
 start_background_refresh()
 
 # Cache warm runs in the background thread — do not block Gunicorn startup on Render.
