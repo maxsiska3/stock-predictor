@@ -4,132 +4,114 @@
 
 ---
 
-## Current State
+## Current State (June 2026)
 
-The app works as a single-user local dashboard. Core infrastructure is solid:
+Kouros is a multi-user hosted dashboard with per-account data in SQLite.
 
-- Dynamic watchlist (add/remove via live search modal)
-- Full data table: price, technicals, fundamentals, ML prediction badge
-- Funds table with aggregated portfolio metrics
-- Three-theme design system (Light, Dark, Kouros)
-- Sidebar: top predictions + movers from watchlist
-- In-memory caching for market data and search results
+**Done today:**
+
+| Area | What's live |
+|------|-------------|
+| **Auth** | Register, login, logout (Flask-Login + bcrypt). Split login/register UI with Kouros branding. |
+| **Data** | SQLite (`kouros.db`): users, watchlist, positions, user_funds, fund_holdings (with shares/avg_cost). |
+| **Watchlist** | Live search add/remove modal, Stocks / ETFs sections, full data table + ML prediction badge. |
+| **Positions** | Per-ticker shares, avg cost, mkt value, gain/loss, return % — click Shares to edit. |
+| **Funds** | User-created funds via search modal; expandable rows with per-holding watchlist columns; fund-level position aggregates; benchmark dropdown (S&P / Dow / NASDAQ / Russell) shown under Chg %. |
+| **Sidebar** | Movers & predictions + sector exposure chart (labeled *from your watchlist*). |
+| **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching. |
+| **Design** | Light / Dark / Kouros themes; shared 24-column grid for watchlist & funds alignment. |
+
+**Not yet:** detail screens, digest, market pulse, movers/predictions scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
 
 ---
 
-## What Needs to Change Before Hosting
+## Phase 0 — Multi-user Foundation ✅
 
-Before any new features, the foundation needs to support real users.
-
-### Phase 0 — Multi-user Foundation
 **Goal:** multiple people can log in, each with their own data. The app is stable and deployable.
 
+**Status:** Complete (deploy to Render may need env/disk verification per environment).
+
 ---
 
-#### 0.1 — User Auth
+#### 0.1 — User Auth ✅
 - Email + password login (Flask-Login + bcrypt)
 - Register / login / logout screens
 - Session management
 - Password stored as bcrypt hash, never plain text
 - Protected routes — redirect to login if not authenticated
 
-**New files:**
-```
-utils/auth.py           User model, password hashing, session helpers
-templates/login.html    Login screen
-templates/register.html Registration screen
-```
-
-**DB choice:** SQLite to start (zero config, file-based). Swap to Postgres later when hosting.
+**Files:** `utils/auth.py`, `templates/login.html`, `templates/register.html`, `static/auth.css`, `templates/partials/auth-brand-panel.html`
 
 ---
 
-#### 0.2 — Per-user Data Storage
-Right now `data/watchlist.json` is one file shared by everyone on the server. Replace with a DB table keyed by user ID.
+#### 0.2 — Per-user Data Storage ✅
+- `users` — id, email, password_hash, display_name, created_at
+- `watchlist` — user_id, symbol, added_at
+- `positions` — user_id, symbol, shares, avg_cost, purchased_at
+- `user_funds` — user_id, name, created_at
+- `fund_holdings` — fund_id, symbol, shares, avg_cost
 
-- `users` table: id, email, password_hash, created_at
-- `watchlist` table: user_id, symbol, added_at
-- `funds` table: user_id, fund_name, created_at
-- `fund_holdings` table: fund_id, symbol
-
-`utils/watchlist_store.py` gets a `user_id` parameter everywhere. Same logic, different storage.
-
-**Why SQLite first:** no separate server to run, same atomic write guarantees, easy to migrate to Postgres. Single file in `/data/kouros.db`.
+**Files:** `utils/db.py`, `utils/watchlist_store.py`, `utils/position_store.py`, `utils/fund_store.py`
 
 ---
 
-#### 0.3 — Production Server Config
-- Add Gunicorn: `gunicorn app:app --workers 2 --timeout 120`
+#### 0.3 — Production Server Config ✅
+- Gunicorn + `render.yaml`
 - `SECRET_KEY` from environment variable
-- `debug=False` in production
-- Background thread refreshing market data every 60s so page loads serve cached data
+- Background thread refreshing market data every 60s (`utils/refresh.py`)
 
 ---
 
-#### 0.4 — Deploy to Render
-- Connect GitHub repo
-- Set env vars: `SECRET_KEY`, `DATABASE_URL`
-- Persistent disk for SQLite file
-- Free SSL
-
-**Deliverable:** `https://kouros.onrender.com` (or custom domain) — accounts work, each user has their own watchlist.
+#### 0.4 — Deploy to Render ✅ (configured)
+- GitHub repo connected
+- Env vars: `SECRET_KEY`, `DATABASE_PATH`
+- Persistent disk for SQLite
+- ML model artifacts committed (`model/*.pkl`)
 
 ---
 
-## Phase 1 — Portfolio Tracker
+## Phase 1 — Portfolio Tracker ✅
 
 **Goal:** turn a watchlist into a real portfolio. Users track what they own and at what cost.
 
----
-
-### 1.1 — Cost Basis & Positions
-Add a "positions" concept alongside the watchlist. When a user adds a ticker they can optionally log:
-
-- Shares owned
-- Average purchase price
-- Date purchased
-
-**New DB table:** `positions` — user_id, symbol, shares, avg_cost, purchased_at
-
-**What this unlocks:**
-- Unrealized gain/loss per position: `(current_price - avg_cost) × shares`
-- Total portfolio value
-- % return per holding
-- Overall portfolio P&L
-
-New columns in the watchlist table: **Shares**, **Avg Cost**, **Market Value**, **Gain/Loss**, **Return %**
+**Status:** Complete.
 
 ---
 
-### 1.2 — Dynamic Funds
-Right now funds are hardcoded in `app.py`. Make them user-created.
+### 1.1 — Cost Basis & Positions ✅
+- `positions` table — user_id, symbol, shares, avg_cost, purchased_at
+- Watchlist columns: **Shares**, **Avg Cost**, **Market Value**, **Gain/Loss**, **Return %**
+- Click Shares / Avg Cost to open position edit modal
+- API: `GET/PUT/DELETE /api/positions`
 
-- Users create a fund with a name
-- Add any tickers from their watchlist to it
-- Fund table computes the same aggregated metrics it does today
-
-**UI:** "+ Add Fund" button (already exists as a placeholder), opens a modal similar to the watchlist add modal.
-
----
-
-### 1.3 — Sector Exposure Chart
-A simple visual breakdown of watchlist/portfolio by sector.
-
-- Group holdings by sector (already in market data)
-- Render as a horizontal bar or donut (SVG or Chart.js)
-- Show % weight per sector
-- Highlight concentration (e.g. >50% in one sector)
-
-**Where it lives:** new card in the sidebar or a section on the stock detail screen.
+**Files:** `utils/position_store.py`
 
 ---
 
-### 1.4 — Fund vs S&P 500 Benchmark
-For each fund, show its % change vs SPY over the same period.
+### 1.2 — Dynamic Funds ✅
+- User-created funds with name + ticker search (any symbol, not watchlist-only)
+- `user_funds` + `fund_holdings` tables
+- "+ Add Fund" modal, delete fund on row hover
+- Expandable fund rows — each holding uses the same columns as the watchlist
+- Per-holding shares/avg cost in fund (`fund_holdings.shares`, `fund_holdings.avg_cost`)
+- Fund summary row aggregates portfolio totals in trailing position columns
+- API: `GET/POST/DELETE /api/funds`, ticker add/remove, `PUT/DELETE .../holdings/<symbol>/position`
 
-- Fetch SPY alongside fund tickers (already in fetch pipeline)
-- Show: `Your Fund +3.2% vs S&P 500 +1.8% — outperforming by 1.4%`
-- One line, big impact on understanding portfolio performance
+**Files:** `utils/fund_store.py`
+
+---
+
+### 1.3 — Sector Exposure Chart ✅
+- Horizontal bar chart in sidebar
+- Grouped by sector from watchlist holdings
+- Subtitle: *from your watchlist*
+
+---
+
+### 1.4 — Fund vs Index Benchmark ✅
+- Always fetch SPY, DIA, QQQ, IWM (`utils/config.py` → `BENCHMARK_TICKERS`)
+- Funds panel header dropdown: S&P 500, Dow Jones, NASDAQ, Russell 2000
+- Selected benchmark shown under fund **Chg %** (e.g. `+0.42% vs`); choice persisted in `localStorage`
 
 ---
 
@@ -481,13 +463,12 @@ Replace current watchlist-only movers with a more useful layout.
 │  DOW       -0.12%    │
 ├──────────────────────┤
 │  YOUR PREDICTIONS    │
+│  [Watchlist ▾]       │  ← scope dropdown
 │  Top signals today   │
-│  (already exists)    │
 ├──────────────────────┤
 │  YOUR MOVERS         │
-│  Best/worst in your  │
-│  watchlist today     │
-│  (already exists)    │
+│  [Watchlist ▾]       │  ← same scope control
+│  Best/worst today    │
 ├──────────────────────┤
 │  EARNINGS THIS WEEK  │
 │  Your tickers only   │
@@ -496,7 +477,22 @@ Replace current watchlist-only movers with a more useful layout.
 └──────────────────────┘
 ```
 
+### 6.1 — Movers & Predictions scope dropdown (planned)
+Today the sidebar always uses **your watchlist**. Add a dropdown on the Movers & Predictions panel:
+
+| Option | What it shows |
+|--------|----------------|
+| **Watchlist** | Current behavior — gainers, losers, volume, top predictions from watchlist symbols |
+| **Funds** | Same groups computed from the union of all tickers across your funds (or per-fund if a second selector is added later) |
+
+- Persist choice in `localStorage` (same pattern as fund benchmark dropdown)
+- Update subtitle from *from your watchlist* to reflect active scope
+- Backend: `build_groups()` accepts a symbol list; route passes watchlist rows or fund holding rows based on selection
+- Optional follow-up: third option **All** (watchlist ∪ funds deduped)
+
 Market Pulse (3 index numbers) gives macro context without competing with Yahoo Finance on breadth. Earnings in the sidebar is immediately actionable.
+
+**Partially done:** Sector exposure chart (watchlist only); movers/predictions still watchlist-only.
 
 ---
 
@@ -515,17 +511,17 @@ Once the core is solid:
 ## Full Build Order
 
 ```
-Phase 0 — Foundation (host it correctly)
+Phase 0 — Foundation ✅
   0.1  Auth (register, login, logout)
-  0.2  Per-user DB (SQLite → Postgres)
-  0.3  Production server config (Gunicorn, env vars)
-  0.4  Deploy to Render + persistent storage
+  0.2  Per-user DB (SQLite)
+  0.3  Production server config (Gunicorn, env vars, background refresh)
+  0.4  Deploy to Render (configured)
 
-Phase 1 — Portfolio Tracker
-  1.1  Cost basis + positions (shares, avg cost, P&L)
-  1.2  Dynamic funds (user-created, not hardcoded)
-  1.3  Sector exposure chart
-  1.4  Fund vs S&P 500 benchmark
+Phase 1 — Portfolio Tracker ✅
+  1.1  Cost basis + positions (watchlist + fund holdings)
+  1.2  Dynamic funds (search modal, expandable rows, per-stock positions)
+  1.3  Sector exposure chart (sidebar, watchlist)
+  1.4  Fund vs index benchmark (dropdown: SPY / DIA / QQQ / IWM)
 
 Phase 2 — Detail Screens
   2.1  Stock detail screen (chart, position, notes, earnings)
@@ -550,8 +546,10 @@ Phase 5 — Daily Digest Screen
   Earnings calendar + prediction results + movers + market pulse
 
 Phase 6 — Sidebar Upgrade
-  Market Pulse (3 index numbers)
-  Earnings this week (from your watchlist)
+  6.1  Movers & predictions scope dropdown (watchlist | funds)
+  6.2  Market Pulse (SPY / QQQ / DIA)
+  6.3  Earnings this week (from active scope)
+  (sector exposure chart — done for watchlist)
 
 Phase 7 — Polish
   Price alerts
@@ -563,54 +561,53 @@ Phase 7 — Polish
 
 ---
 
-## Tech Stack (updated)
+## Tech Stack
 
-| Layer | Current | Planned |
-|-------|---------|---------|
-| Backend | Flask, Jinja2 | Flask, Jinja2 |
-| Auth | None | Flask-Login, bcrypt |
-| DB | JSON file | SQLite → Postgres (Render) |
-| ML | scikit-learn (RandomForest), joblib | XGBoost/LightGBM + calibration + prediction logging |
-| Data | yfinance (60s cache) | yfinance + background refresh thread |
-| Charts | None | Chart.js (lightweight, no build step) |
-| Frontend | Vanilla JS, CSS vars | Same + Chart.js |
-| Hosting | Local only | Render (web service + persistent disk) |
-| Scheduling | None | APScheduler (daily prediction log job) |
+| Layer | Status |
+|-------|--------|
+| Backend | Flask, Jinja2 |
+| Auth | Flask-Login, bcrypt |
+| DB | SQLite (`data/kouros.db`) → Postgres when needed |
+| ML | scikit-learn RandomForest, joblib (`model/*.pkl`) |
+| Data | yfinance + 60s per-ticker cache + background refresh |
+| Frontend | Vanilla JS, CSS custom properties, shared dashboard grid |
+| Charts | Sector bars (CSS); Chart.js planned for detail screens |
+| Hosting | Render (`render.yaml`, Gunicorn, persistent disk) |
+| Scheduling | Background market refresh thread; APScheduler planned for prediction log |
 
 ---
 
-## Project Structure (target)
+## Project Structure (current)
 
 ```
 app.py
 utils/
   auth.py                  User model, login helpers
-  market.py                Batch yfinance fetch, background refresh
+  config.py                BENCHMARK_TICKERS, BENCHMARK_OPTIONS
+  db.py                    SQLite schema + migrations
+  market.py                yfinance batch fetch, cache, row builder
   predict.py               ML inference
   features.py              Technical indicators
   watchlist_store.py       Per-user watchlist CRUD
-  fund_store.py            Per-user fund CRUD (new)
-  prediction_log.py        Daily log + accuracy calculations (new)
-  earnings.py              Upcoming earnings from yfinance (new)
-  db.py                    SQLite connection + schema init (new)
+  position_store.py        Per-user watchlist positions
+  fund_store.py            Per-user fund CRUD + holding positions
+  refresh.py               Background cache warming
+  ticker_search.py         Live symbol search
 model/
   trained_model.pkl
   scaler.pkl
 templates/
-  base.html                Shared layout, nav, theme switcher (new)
   landing-screen.html      Main dashboard
-  login.html               Auth screens (new)
-  register.html
-  stock.html               Stock detail screen (new)
-  fund.html                Fund detail screen (new)
-  digest.html              Daily digest screen (new)
+  login.html / register.html
+  partials/auth-brand-panel.html
 static/
   styles.css
   theme.js
   dashboard.js
-  charts.js                Chart.js wrappers (new)
+  auth.css
 data/
-  kouros.db                SQLite database (git-ignored)
+  kouros.db                SQLite (git-ignored)
+render.yaml
 ```
 
 ---
@@ -621,4 +618,4 @@ Kouros is a personal portfolio tracker with experimental ML-powered signals. Pre
 
 ---
 
-*Last updated: June 2026*
+*Last updated: June 30, 2026*

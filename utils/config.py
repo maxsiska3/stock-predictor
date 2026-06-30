@@ -1,12 +1,11 @@
-# utils/config.py — shared app constants (imported by app, market refresh, etc.)
+# utils/config.py — shared app constants
 
-# Hardcoded fund definitions until Phase 1.2 (dynamic user-created funds).
-FUNDS = [
-    {"name": "Max's Fund", "tickers": ["ACN", "AAPL", "AMZN", "BRK-B", "NVDA", "JPM"]},
-    {"name": "Excelsior Fund", "tickers": ["AMD", "ORCL", "MU", "PLTR"]},
+# Index ETFs always fetched for fund benchmark comparisons.
+BENCHMARK_TICKERS = ["SPY", "DIA", "QQQ"]
+
+# Keys used by the vs-index column dropdown (localStorage + data attributes).
+BENCHMARK_OPTIONS = [
+    {"key": "spy", "label": "S&P 500", "short": "S&P", "ticker": "SPY"},
+    {"key": "dow", "label": "Dow Jones", "short": "Dow", "ticker": "DIA"},
+    {"key": "nasdaq", "label": "NASDAQ", "short": "NASDAQ", "ticker": "QQQ"},
 ]
-
-
-def get_fund_tickers():
-    """All tickers referenced by hardcoded funds."""
-    return {t for f in FUNDS for t in f["tickers"]}

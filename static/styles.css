@@ -1,5 +1,5 @@
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
+html,body{min-height:100%}
 body{
   background:var(--bg);
   color:var(--text);
@@ -11,10 +11,9 @@ body{
 
 #app-root{
   --table-col-gap:10px;
-  /* Watchlist: 24 columns (19 original + 5 position cols) */
-  --watchlist-cols:95px 75px 75px 75px 75px 95px 75px 75px 65px 65px 65px 80px 75px 75px 65px 180px 95px 75px 65px 80px 90px 90px 75px 32px;
-  /* Funds: 20 columns (adding vs-S&P col + action) */
-  --funds-cols:120px 65px 75px 80px 80px 95px 85px 90px 75px 65px 65px 80px 75px 150px 65px 150px 95px 80px 75px 32px;
+  /* Shared 25-column grid — watchlist & funds use identical tracks. */
+  --dashboard-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 65px 80px 75px 75px 65px 180px 95px 75px 100px 65px 80px 90px 90px 75px 32px;
+  --dashboard-panel-body-min:300px;
   --sub-bg:var(--panel);
   --muted2:var(--muted);
   --soft:var(--hover);
@@ -52,13 +51,14 @@ body{
 }
 
 .app-shell{
-  position:fixed;inset:0;display:flex;flex-direction:column;
+  min-height:100vh;display:flex;flex-direction:column;
   background:var(--bg);color:var(--text);
 }
 
 /* ─── Header ──────────────────────────────────────────────── */
 .app-header{
   flex:none;min-height:64px;
+  position:sticky;top:0;z-index:200;
   display:flex;align-items:center;justify-content:space-between;
   padding:0 20px;
   background:var(--panel);
@@ -97,7 +97,68 @@ body{
   font-size:12px;color:var(--muted);
 }
 
-.app-body{flex:1;display:flex;gap:14px;padding:14px;min-height:0;overflow:hidden}
+.app-body{
+  flex:1;display:flex;gap:14px;padding:14px;
+  align-items:flex-start;
+}
+
+/* ─── Dashboard layout (page scroll, equal panels) ─────────── */
+.dashboard-main{
+  flex:1;min-width:0;
+  overflow-x:auto;
+  padding-bottom:4px;
+}
+.dashboard-hscroll-track{
+  display:inline-block;
+  min-width:100%;
+  vertical-align:top;
+}
+.dashboard-hscroll-track > .dashboard-panel + .dashboard-panel{
+  margin-top:14px;
+}
+.dashboard-panel{
+  display:flex;flex-direction:column;
+  width:100%;
+}
+.dashboard-panel--watchlist .dashboard-table-wrap,
+.dashboard-panel--funds .dashboard-table-wrap{
+  display:flex;flex-direction:column;
+}
+.dashboard-panel--watchlist .dashboard-table-inner,
+.dashboard-panel--funds .dashboard-table-inner{
+  display:flex;flex-direction:column;
+  min-width:max-content;
+  width:100%;
+}
+.dashboard-panel--watchlist .dashboard-table-body,
+.dashboard-panel--funds .dashboard-table-body{
+  min-height:var(--dashboard-panel-body-min);
+  min-width:max-content;
+}
+.dashboard-table-inner{
+  min-width:max-content;
+}
+.dashboard-sidebar{
+  flex:none;width:288px;
+  display:flex;flex-direction:column;gap:14px;
+  position:sticky;top:78px;
+  align-self:flex-start;
+  max-height:calc(100vh - 92px);
+  overflow-y:auto;
+}
+.dashboard-sidebar .panel-card{
+  flex:none;
+}
+.dashboard-sidebar .dashboard-panel--sidebar{
+  min-height:0;
+}
+
+@media(max-width:1100px){
+  .app-body{flex-direction:column}
+  .dashboard-sidebar{
+    width:100%;position:static;max-height:none;overflow:visible;
+  }
+}
 
 .app-footer{
   flex:none;border-top:1px solid var(--line);
@@ -134,15 +195,10 @@ body{
 ::-webkit-scrollbar-track{background:transparent}
 .row:hover{background:var(--hover)}
 
-.watchlist-grid{
+.watchlist-grid,.funds-grid{
   display:grid;align-items:center;
   column-gap:var(--table-col-gap);
-  grid-template-columns:var(--watchlist-cols);
-}
-.funds-grid{
-  display:grid;align-items:center;
-  column-gap:var(--table-col-gap);
-  grid-template-columns:var(--funds-cols);
+  grid-template-columns:var(--dashboard-cols);
 }
 .watchlist-grid>*,.funds-grid>*{
   display:flex;justify-content:center;align-items:center;
@@ -164,8 +220,8 @@ body{
   align-items:center;
 }
 .table-row{
-  padding:8px 12px 8px 10px;border-bottom:1px solid var(--line3);cursor:pointer;
-  align-items:center;min-height:44px;
+  padding:9px 12px 9px 10px;border-bottom:1px solid var(--line3);cursor:pointer;
+  align-items:center;min-height:46px;
 }
 .col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -445,8 +501,33 @@ body{
 
 .watchlist-empty{
   padding:36px 16px;text-align:center;color:var(--muted);font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  min-height:calc(var(--dashboard-panel-body-min) - 48px);
 }
 .symbol-cell{display:flex;align-items:center;justify-content:flex-start}
+
+/* Watchlist section divider — Stocks / ETFs */
+.watchlist-section-header{
+  padding:5px 10px;
+  background:var(--sub-bg);
+  border-bottom:1px solid var(--line2);
+  border-top:1px solid var(--line2);
+  font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  color:var(--muted2);text-transform:uppercase;
+}
+.watchlist-section-header span{
+  display:flex;align-items:center;gap:6px;
+}
+.section-header-count{
+  font-weight:400;font-size:10px;color:var(--muted);
+  letter-spacing:.02em;text-transform:none;
+}
+
+/* Sidebar subtitle "from your watchlist" */
+.section-subtitle{
+  display:block;font-size:10px;font-weight:400;
+  color:var(--muted);letter-spacing:.02em;margin-top:1px;
+}
 
 /* ─── Auth pages — split layout ───────────────────────────── */
 
@@ -611,9 +692,28 @@ body{
   transition:width .3s ease;
 }
 
-/* ─── Position columns — clickable hint ───────────────────── */
-.pos-cell{cursor:pointer;transition:background .1s}
-.pos-cell:hover{background:var(--accent-soft)}
+/* ─── Position columns — clickable edit cells ─────────────── */
+.pos-cell{
+  cursor:pointer;
+  transition:background .12s,outline .12s;
+  border-radius:3px;
+  position:relative;
+}
+.pos-cell:hover{
+  background:var(--accent-soft);
+  outline:1px solid var(--accent-line);
+}
+/* Pencil icon appears on row hover, anchored to the shares cell */
+.pos-shares::after{
+  content:'✎';
+  margin-left:4px;
+  font-size:9px;
+  color:var(--accent);
+  opacity:0;
+  transition:opacity .12s;
+  pointer-events:none;
+}
+.table-row:hover .pos-shares::after{opacity:1}
 .pos-add-hint{
   font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.02em;
 }
@@ -639,3 +739,42 @@ body{
   box-shadow:0 0 0 3px var(--accent-soft);
 }
 .pos-field-input::placeholder{color:var(--muted)}
+
+/* ─── Fund table: expand, benchmark column, child rows ───── */
+.vs-index-header{
+  display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  overflow:visible;max-width:100%;
+}
+.vs-index-label{
+  font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;flex-shrink:0;
+}
+.benchmark-select{
+  font-family:'Archivo',sans-serif;font-size:10.5px;width:100%;min-width:0;
+  padding:2px 4px;border:1px solid var(--line);border-radius:4px;
+  background:var(--bg);color:var(--text2);cursor:pointer;
+  text-transform:none;letter-spacing:normal;
+}
+.table-header .benchmark-select{font-size:10px;padding:2px 3px}
+.table-header .vs-index-header{text-transform:none}
+.vs-index-cell{font-weight:600}
+.fund-name-cell{display:flex;align-items:center;gap:6px;min-width:0}
+.fund-name-text{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-width:0;flex:1;
+}
+.fund-expand-btn{
+  width:20px;height:20px;padding:0;border:none;border-radius:4px;
+  background:transparent;color:var(--muted);font-size:11px;line-height:1;
+  cursor:pointer;flex-shrink:0;
+}
+.fund-expand-btn:hover{background:var(--hover);color:var(--text)}
+.fund-holdings-block{
+  border-bottom:2px solid var(--line2);
+  padding-bottom:6px;margin-bottom:2px;
+}
+.fund-holding-row{background:var(--sub-bg)}
+.fund-holding-row:hover{background:var(--hover)}
+.fund-holding-indent{
+  display:inline-block;width:14px;flex-shrink:0;
+}

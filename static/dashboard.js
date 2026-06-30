@@ -139,89 +139,67 @@
      ADD-FUND MODAL
   ══════════════════════════════════════════════════════════ */
   (function initAddFund() {
-    var addBtn      = $("add-fund-btn");
-    var modal       = $("add-fund-modal");
-    var nameInput   = $("fund-name-input");
-    var listEl      = $("fund-ticker-list");
-    var messageEl   = $("add-fund-message");
-    var confirmBtn  = $("add-fund-confirm");
-    var cancelBtn   = $("add-fund-cancel");
-    var cancelClose = $("add-fund-cancel-btn");
-    var countEl     = $("add-fund-selected-count");
+    var addBtn       = $("add-fund-btn");
+    var modal        = $("add-fund-modal");
+    var nameInput    = $("fund-name-input");
+    var searchInput  = $("fund-ticker-search");
+    var resultsEl    = $("fund-ticker-results");
+    var messageEl    = $("add-fund-message");
+    var confirmBtn   = $("add-fund-confirm");
+    var cancelBtn    = $("add-fund-cancel");
+    var cancelClose  = $("add-fund-cancel-btn");
+    var countEl      = $("add-fund-selected-count");
 
     if (!addBtn || !modal) return;
 
     var selected = new Set();
-    var watchlistSymbols = window.WATCHLIST_SYMBOLS || [];
+    var searchTimer = null;
 
     function openModal() {
       modal.hidden = false;
       selected.clear();
       nameInput.value = "";
+      searchInput.value = "";
       messageEl.textContent = "";
-      renderFundTickerList();
+      renderPlaceholder(resultsEl, "Search a symbol to add it to this fund");
       updateCount();
       setTimeout(function () { nameInput.focus(); }, 50);
     }
 
-    function closeModal() { modal.hidden = true; selected.clear(); }
+    function closeModal() {
+      modal.hidden = true;
+      selected.clear();
+      if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
+    }
 
     function updateCount() {
       var n = selected.size;
       countEl.textContent = n + " selected";
     }
 
-    function renderFundTickerList() {
-      listEl.innerHTML = "";
-      if (!watchlistSymbols.length) {
-        var p = document.createElement("p");
-        p.className = "ticker-search-empty";
-        p.textContent = "Your watchlist is empty — add some tickers first";
-        listEl.appendChild(p);
-        return;
-      }
-      watchlistSymbols.forEach(function (sym) {
-        var isSelected = selected.has(sym);
-        var el = document.createElement("div");
-        el.className = "ticker-result-row" + (isSelected ? " is-selected" : "");
-        el.setAttribute("data-symbol", sym);
-        el.setAttribute("role", "button");
-        el.setAttribute("tabindex", "0");
+    function onSearchInput() {
+      var q = searchInput.value.trim();
+      messageEl.textContent = "";
+      if (searchTimer) clearTimeout(searchTimer);
+      if (!q) { renderPlaceholder(resultsEl, "Search a symbol to add it to this fund"); return; }
 
-        var check = document.createElement("span");
-        check.className = "ticker-result-check";
-        check.textContent = isSelected ? "✓" : "";
-
-        var symEl = document.createElement("span");
-        symEl.className = "ticker-result-symbol";
-        symEl.textContent = sym;
-
-        el.appendChild(check);
-        el.appendChild(symEl);
-
-        function toggle() {
-          if (selected.has(sym)) {
-            selected.delete(sym);
-            el.classList.remove("is-selected");
-            check.textContent = "";
-          } else {
-            selected.add(sym);
-            el.classList.add("is-selected");
-            check.textContent = "✓";
-          }
-          updateCount();
-        }
-        el.addEventListener("click", toggle);
-        el.addEventListener("keydown", function (e) { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(); } });
-        listEl.appendChild(el);
-      });
+      searchTimer = setTimeout(function () {
+        // context=fund so nothing is pre-marked as "already added"
+        fetch("/api/tickers/search?q=" + encodeURIComponent(q) + "&context=fund")
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            renderSearchResults(resultsEl, data.results || [], selected, updateCount);
+          })
+          .catch(function () { renderPlaceholder(resultsEl, "Search failed — try again"); });
+      }, DEBOUNCE_MS);
     }
 
     function onConfirmCreate() {
       var name = (nameInput.value || "").trim();
-      if (!name) { messageEl.textContent = "Please enter a fund name"; return; }
+      if (!name) { messageEl.textContent = "Please enter a fund name"; nameInput.focus(); return; }
       confirmBtn.textContent = "Creating…";
       confirmBtn.disabled = true;
+      messageEl.textContent = "";
 
       fetch("/api/funds", {
         method: "POST",
@@ -250,20 +228,23 @@
     if (cancelClose) cancelClose.addEventListener("click", closeModal);
     modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+    searchInput.addEventListener("input", onSearchInput);
+    searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
     confirmBtn.addEventListener("click", onConfirmCreate);
-    nameInput.addEventListener("keydown", function (e) { if (e.key === "Enter") onConfirmCreate(); });
+    nameInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); searchInput.focus(); }
+    });
 
     /* Delete fund buttons */
     document.querySelectorAll(".remove-fund-btn").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var fundId = btn.getAttribute("data-fund-id");
-        var fundName = btn.closest("[data-fund-id]").querySelector(".col-ident").textContent;
+        var fundRow = btn.closest("[data-fund-id]");
+        var fundNameEl = fundRow ? fundRow.querySelector(".fund-name-text") : null;
+        var fundName = fundNameEl ? fundNameEl.textContent : "this fund";
         if (!confirm("Delete fund \"" + fundName + "\"? This cannot be undone.")) return;
-        fetch("/api/funds/" + fundId, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        })
+        fetch("/api/funds/" + fundId, { method: "DELETE" })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
           .then(function (res) {
             if (res.ok) window.location.reload();
@@ -279,12 +260,14 @@
      POSITION EDIT MODAL
   ══════════════════════════════════════════════════════════ */
   (function initPositionModal() {
-    var modal      = $("position-modal");
-    var titleEl    = $("position-modal-title");
+    var modal       = $("position-modal");
+    var titleEl     = $("position-modal-title");
     var tickerInput = $("position-ticker");
+    var fundIdInput = $("position-fund-id");
     var sharesInput = $("position-shares");
     var costInput   = $("position-avgcost");
     var dateInput   = $("position-date");
+    var dateGroup   = $("position-date-group");
     var messageEl   = $("position-modal-message");
     var saveBtn     = $("position-save-btn");
     var deleteBtn   = $("position-delete-btn");
@@ -293,15 +276,19 @@
 
     if (!modal) return;
 
-    function openModal(ticker, existingShares, existingCost, existingDate) {
+    function openModal(ticker, existingShares, existingCost, existingDate, fundId) {
       modal.hidden = false;
-      titleEl.textContent = "Position — " + ticker;
-      tickerInput.value   = ticker;
-      sharesInput.value   = existingShares || "";
-      costInput.value     = existingCost   || "";
-      dateInput.value     = existingDate   || "";
+      fundIdInput.value = fundId || "";
+      titleEl.textContent = fundId ? ("Fund position — " + ticker) : ("Position — " + ticker);
+      tickerInput.value = ticker;
+      sharesInput.value = existingShares || "";
+      costInput.value   = existingCost || "";
+      dateInput.value   = existingDate || "";
+      if (dateGroup) dateGroup.style.display = fundId ? "none" : "";
       messageEl.textContent = "";
       deleteBtn.style.visibility = existingShares ? "visible" : "hidden";
+      saveBtn.textContent = "Save";
+      saveBtn.disabled = false;
       setTimeout(function () { sharesInput.focus(); }, 50);
     }
 
@@ -309,6 +296,7 @@
 
     function onSave() {
       var ticker  = tickerInput.value;
+      var fundId  = fundIdInput.value;
       var shares  = parseFloat(sharesInput.value);
       var avgCost = parseFloat(costInput.value);
       var date    = dateInput.value || null;
@@ -326,10 +314,17 @@
       saveBtn.disabled = true;
       messageEl.textContent = "";
 
-      fetch("/api/positions", {
+      var url = fundId
+        ? ("/api/funds/" + fundId + "/holdings/" + encodeURIComponent(ticker) + "/position")
+        : "/api/positions";
+      var body = fundId
+        ? { shares: shares, avg_cost: avgCost }
+        : { symbol: ticker, shares: shares, avg_cost: avgCost, purchased_at: date };
+
+      fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: ticker, shares: shares, avg_cost: avgCost, purchased_at: date }),
+        body: JSON.stringify(body),
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
@@ -350,14 +345,35 @@
 
     function onDelete() {
       var ticker = tickerInput.value;
+      var fundId = fundIdInput.value;
       if (!ticker || !confirm("Remove position for " + ticker + "?")) return;
 
-      fetch("/api/positions/" + encodeURIComponent(ticker), { method: "DELETE" })
+      var url = fundId
+        ? ("/api/funds/" + fundId + "/holdings/" + encodeURIComponent(ticker) + "/position")
+        : ("/api/positions/" + encodeURIComponent(ticker));
+
+      fetch(url, { method: "DELETE" })
         .then(function (r) {
           if (r.ok) window.location.reload();
           else alert("Could not remove position");
         })
         .catch(function () { alert("Request failed — try again"); });
+    }
+
+    function readPositionFromRow(row) {
+      var sharesCell = row.querySelector(".pos-shares");
+      var costCell   = row.querySelector(".pos-avgcost");
+      var existingShares = null;
+      var existingCost   = null;
+      if (sharesCell) {
+        var sharesText = sharesCell.textContent.replace(/[^0-9.]/g, "");
+        existingShares = sharesText || null;
+      }
+      if (costCell) {
+        var costText = costCell.textContent.replace(/[^0-9.]/g, "");
+        existingCost = costText || null;
+      }
+      return { existingShares: existingShares, existingCost: existingCost };
     }
 
     saveBtn.addEventListener("click", onSave);
@@ -367,31 +383,90 @@
     modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !modal.hidden) closeModal(); });
 
-    /* Wire up clickable position cells in watchlist rows */
     document.querySelectorAll(".pos-cell").forEach(function (cell) {
       cell.addEventListener("click", function (e) {
         e.stopPropagation();
         var ticker = cell.getAttribute("data-ticker");
+        var fundId = cell.getAttribute("data-fund-id") || null;
         var row    = cell.closest(".table-row");
+        if (!row || !ticker) return;
+        var pos = readPositionFromRow(row);
+        openModal(ticker, pos.existingShares, pos.existingCost, null, fundId);
+      });
+    });
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════
+     BENCHMARK COLUMN (watchlist + funds — shared selection)
+  ══════════════════════════════════════════════════════════ */
+  (function initBenchmarkColumn() {
+    var BENCHMARK_KEY = "kouros-benchmark";
+
+    function getSelects() {
+      return document.querySelectorAll(".benchmark-select");
+    }
+
+    function formatVs(val) {
+      if (val === "" || val === null || val === undefined) return "—";
+      var n = parseFloat(val);
+      if (isNaN(n)) return "—";
+      return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+    }
+
+    function applyCells(key) {
+      document.querySelectorAll(".vs-index-cell").forEach(function (cell) {
+        var raw = cell.getAttribute("data-vs-" + key);
+        var text = formatVs(raw);
+        cell.textContent = text;
+        cell.classList.remove("cell-up", "cell-down", "na");
+        if (raw === "" || raw === null) {
+          cell.classList.add("na");
+        } else if (parseFloat(raw) >= 0) {
+          cell.classList.add("cell-up");
+        } else {
+          cell.classList.add("cell-down");
+        }
+      });
+    }
+
+    function setBenchmark(key) {
+      getSelects().forEach(function (sel) {
+        if (sel.value !== key) sel.value = key;
+      });
+      applyCells(key);
+      localStorage.setItem(BENCHMARK_KEY, key);
+    }
+
+    var saved = localStorage.getItem(BENCHMARK_KEY) || localStorage.getItem("kouros-fund-benchmark") || "spy";
+    if (saved === "russell") saved = "spy";
+    setBenchmark(saved);
+
+    document.addEventListener("change", function (e) {
+      if (!e.target || !e.target.classList.contains("benchmark-select")) return;
+      setBenchmark(e.target.value);
+    });
+
+    window.applyDashboardBenchmark = setBenchmark;
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════
+     FUND EXPAND
+  ══════════════════════════════════════════════════════════ */
+  (function initFundUI() {
+    document.querySelectorAll(".fund-expand-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var row = btn.closest(".fund-summary-row");
         if (!row) return;
-
-        /* Read any existing position values from rendered cells */
-        var sharesCell  = row.querySelector(".pos-shares");
-        var costCell    = row.querySelector(".pos-avgcost");
-
-        var existingShares = null;
-        var existingCost   = null;
-
-        if (sharesCell) {
-          var sharesText = sharesCell.textContent.replace(/[^0-9.]/g, "");
-          existingShares = sharesText ? sharesText : null;
-        }
-        if (costCell) {
-          var costText = costCell.textContent.replace(/[^0-9.]/g, "");
-          existingCost = costText ? costText : null;
-        }
-
-        openModal(ticker, existingShares, existingCost, null);
+        var fundId = row.getAttribute("data-fund-id");
+        var block = $("fund-holdings-" + fundId);
+        if (!block) return;
+        var open = block.hidden;
+        block.hidden = !open;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+        btn.textContent = open ? "▾" : "▸";
       });
     });
   })();

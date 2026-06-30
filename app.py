@@ -15,8 +15,18 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, url
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
 
 from utils.auth import AuthError, authenticate_user, create_user, get_user_by_id
+from utils.config import BENCHMARK_OPTIONS, BENCHMARK_TICKERS
 from utils.db import init_db
-from utils.fund_store import FundError, add_tickers_to_fund, create_fund, delete_fund, get_user_funds, remove_ticker_from_fund
+from utils.fund_store import (
+    FundError,
+    add_tickers_to_fund,
+    clear_fund_holding_position,
+    create_fund,
+    delete_fund,
+    get_user_funds,
+    remove_ticker_from_fund,
+    upsert_fund_holding_position,
+)
 from utils.market import fetch_market_data
 from utils.position_store import PositionError, delete_position, get_all_positions, upsert_position
 from utils.predict import predict_stock
@@ -39,16 +49,12 @@ def load_user(user_id):
     return get_user_by_id(user_id)
 
 
-# SPY is always fetched so every fund can show a vs-S&P benchmark.
-_ALWAYS_FETCH = ["SPY"]
-
-
 def get_user_fetch_tickers(user_id):
-    """All tickers needed for one user's dashboard (watchlist + fund holdings + SPY)."""
+    """All tickers needed for one user's dashboard (watchlist + fund holdings + benchmarks)."""
     watchlist = load_watchlist(user_id)
     user_funds = get_user_funds(user_id)
     fund_tickers = [t for f in user_funds for t in f["tickers"]]
-    all_symbols = list(dict.fromkeys(watchlist + fund_tickers + _ALWAYS_FETCH))
+    all_symbols = list(dict.fromkeys(watchlist + fund_tickers + BENCHMARK_TICKERS))
     return all_symbols
 
 
@@ -86,12 +92,46 @@ def _enrich_with_positions(watchlist_rows, positions):
     return enriched
 
 
+def _row_ticker(row):
+    """Safely extract ticker from a market row dict (or None)."""
+    if not row:
+        return None
+    return row.get("ticker")
+
+
+def _is_up(row):
+    pct = row.get("pct_change")
+    return pct is not None and pct > 0
+
+
+def _is_down(row):
+    pct = row.get("pct_change")
+    return pct is not None and pct < 0
+
+
+def _format_clock_time(when=None):
+    """Cross-platform 12h clock label (macOS %-I vs Linux %I)."""
+    when = when or datetime.now()
+    try:
+        return when.strftime("%-I:%M %p")
+    except ValueError:
+        return when.strftime("%I:%M %p").lstrip("0")
+
+
 def build_groups(market_data):
+    gainers = sorted(
+        [x for x in market_data if _is_up(x)],
+        key=lambda x: x["pct_change"],
+        reverse=True,
+    )[:5]
+    losers = sorted(
+        [x for x in market_data if _is_down(x)],
+        key=lambda x: x["pct_change"],
+    )[:5]
+
     mover_groups = [
-        {"title": "Gainers", "key": "gainers", "dot": "var(--up)",
-         "rows": sorted(market_data, key=lambda x: x["pct_change"], reverse=True)[:5]},
-        {"title": "Losers", "key": "losers", "dot": "var(--down)",
-         "rows": sorted(market_data, key=lambda x: x["pct_change"], reverse=False)[:5]},
+        {"title": "Gainers", "key": "gainers", "dot": "var(--up)", "rows": gainers},
+        {"title": "Losers", "key": "losers", "dot": "var(--down)", "rows": losers},
         {"title": "Most Active", "key": "volume", "dot": "var(--accent)",
          "rows": sorted(market_data, key=lambda x: x["volume"], reverse=True)[:5]},
     ]
@@ -113,68 +153,190 @@ def _avg_field(holdings, key, digits=2):
     return round(sum(vals) / len(vals), digits)
 
 
-def build_funds(market_data, user_funds):
-    """Build aggregated fund rows from dynamic user funds.
+def _vs_benchmark(fund_pct, lookup, ticker):
+    """Daily % change minus index ETF daily % change."""
+    bench = lookup.get(ticker)
+    if bench is None or fund_pct is None:
+        return None
+    return round(fund_pct - bench["pct_change"], 2)
 
-    Args:
-        market_data: list of market data dicts (all tickers fetched for this user)
-        user_funds: list of {id, name, tickers} from fund_store
 
-    Returns:
-        list of fund aggregate dicts ready for the template
+def _attach_vs_benchmarks(rows, lookup):
+    """Add vs_spy / vs_dow / vs_nasdaq to each row for the benchmark column."""
+    return [
+        {
+            **row,
+            "vs_spy": _vs_benchmark(row.get("pct_change"), lookup, "SPY"),
+            "vs_dow": _vs_benchmark(row.get("pct_change"), lookup, "DIA"),
+            "vs_nasdaq": _vs_benchmark(row.get("pct_change"), lookup, "QQQ"),
+        }
+        for row in rows
+    ]
+
+
+def _enrich_holding_row(market_row, holding):
+    """Attach fund holding position fields to a market data row."""
+    shares = holding.get("shares")
+    avg_cost = holding.get("avg_cost")
+    if shares is not None and avg_cost is not None:
+        mkt_value = round(shares * market_row["price"], 2)
+        cost_basis = shares * avg_cost
+        gain_loss = round(mkt_value - cost_basis, 2)
+        return_pct = round((gain_loss / cost_basis) * 100, 2) if cost_basis else None
+    else:
+        mkt_value = gain_loss = return_pct = None
+
+    return {
+        **market_row,
+        "fund_id": holding.get("fund_id"),
+        "shares": shares,
+        "avg_cost": avg_cost,
+        "mkt_value": mkt_value,
+        "gain_loss": gain_loss,
+        "return_pct": return_pct,
+    }
+
+
+FUND_NOTIONAL = 10_000
+
+
+def _compute_fund_daily_change(holding_rows):
+    """Daily $ change, % change, and current value for a fund summary row.
+
+    Holdings with logged shares use actual share count; others use equal
+    $10k notional. pct_change is always dollar_change / prior-day value
+    so Chg % and $ Change stay in sync.
     """
-    lookup = {item["ticker"]: item for item in market_data}
-    spy = lookup.get("SPY")
-    spy_pct = spy["pct_change"] if spy else None
+    if not holding_rows:
+        return None, None, None
 
-    NOTIONAL = 10_000
+    dollar_change = 0.0
+    prior_value = 0.0
+    current_value = 0.0
+
+    for h in holding_rows:
+        pct = h.get("pct_change")
+        change = h.get("change")
+        price = h.get("price")
+        shares = h.get("shares")
+
+        if shares is not None and shares > 0 and change is not None and price is not None:
+            dollar_change += shares * change
+            prior_value += shares * (price - change)
+            current_value += shares * price
+        elif pct is not None:
+            dollar_change += FUND_NOTIONAL * pct / 100
+            prior_value += FUND_NOTIONAL
+            current_value += FUND_NOTIONAL * (1 + pct / 100)
+
+    if prior_value <= 0:
+        return None, None, None
+
+    dollar_change = round(dollar_change, 2)
+    pct_change = round((dollar_change / prior_value) * 100, 2)
+    current_value = round(current_value, 2)
+    return pct_change, dollar_change, current_value
+
+
+def _aggregate_fund_positions(holding_rows):
+    """Portfolio-level totals from per-ticker positions inside a fund."""
+    positioned = [
+        h for h in holding_rows
+        if h.get("shares") is not None and h.get("avg_cost") is not None
+    ]
+    if not positioned:
+        return {
+            "shares": None, "avg_cost": None, "mkt_value": None,
+            "gain_loss": None, "return_pct": None,
+        }
+
+    total_cost = sum(h["shares"] * h["avg_cost"] for h in positioned)
+    total_mkt = sum(h["mkt_value"] for h in positioned)
+    gain_loss = round(total_mkt - total_cost, 2)
+    return_pct = round((gain_loss / total_cost) * 100, 2) if total_cost else None
+
+    return {
+        "shares": len(positioned),
+        "avg_cost": round(total_cost / sum(h["shares"] for h in positioned), 2) if positioned else None,
+        "mkt_value": round(total_mkt, 2),
+        "gain_loss": gain_loss,
+        "return_pct": return_pct,
+    }
+
+
+def build_funds(market_data, user_funds):
+    """Build fund summary rows plus per-holding detail for expandable child rows."""
+    lookup = {item["ticker"]: item for item in market_data}
     funds = []
 
     for fund in user_funds:
-        holdings = [lookup[t] for t in fund["tickers"] if t in lookup]
-        total = len(holdings)
-        updated_at = datetime.now().strftime("%-I:%M %p")
+        fund_id = fund["id"]
+        holdings_meta = fund.get("holdings") or [
+            {"symbol": t, "shares": None, "avg_cost": None} for t in fund.get("tickers", [])
+        ]
+        market_holdings = []
+        holding_rows = []
+
+        for h in holdings_meta:
+            sym = h["symbol"]
+            if sym not in lookup:
+                continue
+            meta = {**h, "fund_id": fund_id}
+            row = _enrich_holding_row(lookup[sym], meta)
+            market_holdings.append(lookup[sym])
+            holding_rows.append(row)
+
+        holding_rows = _attach_vs_benchmarks(holding_rows, lookup)
+        total = len(market_holdings)
+        updated_at = _format_clock_time()
+        position_totals = _aggregate_fund_positions(holding_rows)
 
         if total == 0:
             funds.append({
-                "id": fund["id"], "name": fund["name"], "holdings": 0,
+                "id": fund_id, "name": fund["name"], "holdings": 0,
                 "pct_change": None, "dollar_change": None, "total_value": None,
                 "top_performer": None, "worst_performer": None, "outlook": None,
                 "avg_eps": None, "avg_rsi": None, "avg_boll": None, "avg_vol": None,
-                "tickers": ", ".join(fund["tickers"]),
-                "avg_beta": None, "dominant_sector": None,
+                "avg_macd": None, "avg_beta": None, "dominant_sector": None,
                 "direction": 0, "avg_conf": None, "updated_at": updated_at,
-                "vs_spy": None,
+                "vs_spy": None, "vs_dow": None, "vs_nasdaq": None,
+                "holding_rows": [],
+                **position_totals,
             })
             continue
 
-        pct_change     = round(sum(h["pct_change"] for h in holdings) / total, 2)
-        dollar_change  = round(sum(NOTIONAL * h["pct_change"] / 100 for h in holdings), 2)
-        total_value    = round(sum(NOTIONAL * (1 + h["pct_change"] / 100) for h in holdings), 2)
-        top            = max(holdings, key=lambda x: x["pct_change"])
-        worst          = min(holdings, key=lambda x: x["pct_change"])
-        up_count       = sum(1 for h in holdings if h["direction"] == 1)
-        sectors        = [h["sector"] for h in holdings if h.get("sector")]
+        # Daily change: value-weighted (shares when logged, else $10k notional per ticker)
+        pct_change, dollar_change, total_value = _compute_fund_daily_change(holding_rows)
+        up_holdings = [h for h in market_holdings if _is_up(h)]
+        down_holdings = [h for h in market_holdings if _is_down(h)]
+        top = max(up_holdings, key=lambda x: x["pct_change"]) if up_holdings else None
+        worst = min(down_holdings, key=lambda x: x["pct_change"]) if down_holdings else None
+        pred_up_count = sum(1 for h in market_holdings if h["direction"] == 1)
+        sectors = [h["sector"] for h in market_holdings if h.get("sector")]
         dominant_sector = Counter(sectors).most_common(1)[0][0] if sectors else None
-        vs_spy = round(pct_change - spy_pct, 2) if spy_pct is not None else None
 
         funds.append({
-            "id": fund["id"], "name": fund["name"], "holdings": total,
+            "id": fund_id, "name": fund["name"], "holdings": total,
             "pct_change": pct_change, "dollar_change": dollar_change,
             "total_value": total_value,
-            "top_performer": top["ticker"], "worst_performer": worst["ticker"],
-            "outlook": f"{up_count}/{total} up",
-            "avg_eps": _avg_field(holdings, "eps", 2),
-            "avg_rsi": _avg_field(holdings, "rsi", 1),
-            "avg_boll": _avg_field(holdings, "bollinger_pos", 2),
-            "avg_vol": _avg_field(holdings, "volatility", 4),
-            "tickers": ", ".join(fund["tickers"]),
-            "avg_beta": _avg_field(holdings, "beta", 2),
+            "top_performer": _row_ticker(top),
+            "worst_performer": _row_ticker(worst),
+            "outlook": f"{pred_up_count}/{total} up",
+            "avg_eps": _avg_field(market_holdings, "eps", 2),
+            "avg_rsi": _avg_field(market_holdings, "rsi", 1),
+            "avg_boll": _avg_field(market_holdings, "bollinger_pos", 2),
+            "avg_vol": _avg_field(market_holdings, "volatility", 4),
+            "avg_macd": _avg_field(market_holdings, "macd", 2),
+            "avg_beta": _avg_field(market_holdings, "beta", 2),
             "dominant_sector": dominant_sector,
-            "direction": 1 if up_count >= total / 2 else 0,
-            "avg_conf": round(sum(h["confidence"] for h in holdings) / total, 1),
+            "direction": 1 if pred_up_count >= total / 2 else 0,
+            "avg_conf": round(sum(h["confidence"] for h in market_holdings) / total, 1),
             "updated_at": updated_at,
-            "vs_spy": vs_spy,
+            "vs_spy": _vs_benchmark(pct_change, lookup, "SPY"),
+            "vs_dow": _vs_benchmark(pct_change, lookup, "DIA"),
+            "vs_nasdaq": _vs_benchmark(pct_change, lookup, "QQQ"),
+            "holding_rows": holding_rows,
+            **position_totals,
         })
 
     return funds
@@ -224,12 +386,18 @@ def _load_dashboard_context(user_id):
 
     watchlist_rows, _ = _split_watchlist_rows(market_data, user_id)
     watchlist_rows    = _enrich_with_positions(watchlist_rows, positions)
+    lookup            = {item["ticker"]: item for item in market_data}
+    watchlist_rows    = _attach_vs_benchmarks(watchlist_rows, lookup)
+
+    # Split into stocks and ETFs for grouped display in the watchlist table
+    watchlist_stocks = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") != "ETF"]
+    watchlist_etfs   = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") == "ETF"]
 
     mover_groups, pred_groups = build_groups(watchlist_rows)
     funds         = build_funds(market_data, user_funds)
     sector_groups = build_sector_chart(watchlist_rows)
 
-    return watchlist_rows, mover_groups, pred_groups, funds, sector_groups
+    return watchlist_stocks, watchlist_etfs, watchlist_rows, mover_groups, pred_groups, funds, sector_groups
 
 
 # ── Auth routes ─────────────────────────────────────────────
@@ -282,11 +450,16 @@ def logout():
 @app.route("/")
 @login_required
 def home():
-    watchlist_rows, mover_groups, pred_groups, funds, sector_groups = _load_dashboard_context(current_user.id)
-    user_funds = get_user_funds(current_user.id)
+    # Raw symbols from DB — always available even when market data fetch fails.
+    # Used by the Add Fund modal to list tickers the user can add to a fund.
+    raw_watchlist_symbols = load_watchlist(current_user.id)
+
+    watchlist_stocks, watchlist_etfs, watchlist_rows, mover_groups, pred_groups, funds, sector_groups = _load_dashboard_context(current_user.id)
 
     return render_template(
         "landing-screen.html",
+        watchlist_stocks=watchlist_stocks,
+        watchlist_etfs=watchlist_etfs,
         watchlist=watchlist_rows,
         funds=funds,
         moverGroups=mover_groups,
@@ -294,16 +467,17 @@ def home():
         watchCount=len(watchlist_rows),
         fundCount=len(funds),
         sectorGroups=sector_groups,
-        watchlistSymbols=[r["ticker"] for r in watchlist_rows],
+        watchlistSymbols=raw_watchlist_symbols,
+        benchmarkOptions=BENCHMARK_OPTIONS,
         theme="light",
-        now=datetime.now().strftime("%-I:%M %p"),
+        now=_format_clock_time(),
     )
 
 
 @app.route("/api/market-data")
 @login_required
 def api_market_data():
-    watchlist_rows, mover_groups, pred_groups, _funds, _sectors = _load_dashboard_context(current_user.id)
+    _stocks, _etfs, watchlist_rows, mover_groups, pred_groups, _funds, _sectors = _load_dashboard_context(current_user.id)
     return jsonify({
         "watchlist": watchlist_rows,
         "moverGroups": mover_groups,
@@ -347,7 +521,10 @@ def api_watchlist_remove():
 @login_required
 def api_tickers_search():
     q = request.args.get("q", "")
-    results = search_tickers(q, watchlist_symbols=load_watchlist(current_user.id))
+    # context=fund: don't mark anything as "already added" — any ticker can go in a fund
+    context = request.args.get("context", "watchlist")
+    watchlist_syms = load_watchlist(current_user.id) if context == "watchlist" else []
+    results = search_tickers(q, watchlist_symbols=watchlist_syms)
     return jsonify({"results": results})
 
 
@@ -399,6 +576,33 @@ def api_fund_tickers_remove(fund_id):
     try:
         tickers = remove_ticker_from_fund(fund_id, current_user.id, body.get("ticker"))
         return jsonify({"tickers": tickers})
+    except FundError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+
+@app.route("/api/funds/<int:fund_id>/holdings/<symbol>/position", methods=["PUT"])
+@login_required
+def api_fund_holding_position_upsert(fund_id, symbol):
+    body = request.get_json(silent=True) or {}
+    try:
+        pos = upsert_fund_holding_position(
+            fund_id,
+            current_user.id,
+            symbol,
+            body.get("shares"),
+            body.get("avg_cost"),
+        )
+        return jsonify(pos)
+    except FundError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+
+@app.route("/api/funds/<int:fund_id>/holdings/<symbol>/position", methods=["DELETE"])
+@login_required
+def api_fund_holding_position_clear(fund_id, symbol):
+    try:
+        clear_fund_holding_position(fund_id, current_user.id, symbol)
+        return jsonify({"ok": True})
     except FundError as e:
         return jsonify({"error": e.message}), e.status_code
 

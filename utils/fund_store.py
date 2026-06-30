@@ -17,10 +17,12 @@ class FundError(Exception):
 
 
 def get_user_funds(user_id):
-    """Return all funds for a user with their tickers.
+    """Return all funds for a user with holdings (symbol, shares, avg_cost).
 
     Returns:
-        [{"id": 1, "name": "My Fund", "tickers": ["AAPL", "NVDA", ...]}, ...]
+        [{"id": 1, "name": "My Fund", "holdings": [
+            {"symbol": "AAPL", "shares": 10.0, "avg_cost": 178.5}, ...
+        ]}, ...]
     """
     with get_connection() as conn:
         fund_rows = conn.execute(
@@ -31,12 +33,24 @@ def get_user_funds(user_id):
         funds = []
         for f in fund_rows:
             holding_rows = conn.execute(
-                "SELECT symbol FROM fund_holdings WHERE fund_id = ? ORDER BY id ASC",
+                """
+                SELECT symbol, shares, avg_cost
+                FROM fund_holdings WHERE fund_id = ? ORDER BY id ASC
+                """,
                 (f["id"],),
             ).fetchall()
             funds.append({
                 "id": f["id"],
                 "name": f["name"],
+                "holdings": [
+                    {
+                        "symbol": h["symbol"],
+                        "shares": h["shares"],
+                        "avg_cost": h["avg_cost"],
+                    }
+                    for h in holding_rows
+                ],
+                # Flat ticker list — convenient for fetch pipeline
                 "tickers": [h["symbol"] for h in holding_rows],
             })
 
@@ -90,7 +104,9 @@ def create_fund(user_id, name, tickers):
             )
         conn.commit()
 
-    return {"id": fund_id, "name": name, "tickers": clean_tickers}
+    return {"id": fund_id, "name": name, "tickers": clean_tickers, "holdings": [
+        {"symbol": s, "shares": None, "avg_cost": None} for s in clean_tickers
+    ]}
 
 
 def rename_fund(fund_id, user_id, new_name):
@@ -191,6 +207,65 @@ def remove_ticker_from_fund(fund_id, user_id, symbol):
         ).fetchall()
 
     return [r["symbol"] for r in rows]
+
+
+def upsert_fund_holding_position(fund_id, user_id, symbol, shares, avg_cost):
+    """Set shares and average cost for one ticker inside a fund."""
+    sym = str(symbol or "").strip().upper()
+    if not sym:
+        raise FundError("Symbol is required")
+
+    try:
+        shares = float(shares)
+        avg_cost = float(avg_cost)
+    except (TypeError, ValueError):
+        raise FundError("Shares and avg cost must be numbers")
+
+    if shares <= 0:
+        raise FundError("Shares must be greater than 0")
+    if avg_cost <= 0:
+        raise FundError("Average cost must be greater than 0")
+
+    with get_connection() as conn:
+        fund = conn.execute(
+            "SELECT id FROM user_funds WHERE id = ? AND user_id = ?",
+            (fund_id, user_id),
+        ).fetchone()
+        if not fund:
+            raise FundError("Fund not found", 404)
+
+        holding = conn.execute(
+            "SELECT id FROM fund_holdings WHERE fund_id = ? AND symbol = ?",
+            (fund_id, sym),
+        ).fetchone()
+        if not holding:
+            raise FundError(f"{sym} is not in this fund")
+
+        conn.execute(
+            "UPDATE fund_holdings SET shares = ?, avg_cost = ? WHERE fund_id = ? AND symbol = ?",
+            (shares, avg_cost, fund_id, sym),
+        )
+        conn.commit()
+
+    return {"symbol": sym, "shares": shares, "avg_cost": avg_cost}
+
+
+def clear_fund_holding_position(fund_id, user_id, symbol):
+    """Remove shares/cost for one fund holding (ticker stays in the fund)."""
+    sym = str(symbol or "").strip().upper()
+    with get_connection() as conn:
+        fund = conn.execute(
+            "SELECT id FROM user_funds WHERE id = ? AND user_id = ?",
+            (fund_id, user_id),
+        ).fetchone()
+        if not fund:
+            raise FundError("Fund not found", 404)
+
+        conn.execute(
+            "UPDATE fund_holdings SET shares = NULL, avg_cost = NULL WHERE fund_id = ? AND symbol = ?",
+            (fund_id, sym),
+        )
+        conn.commit()
 
 
 def delete_fund(fund_id, user_id):
