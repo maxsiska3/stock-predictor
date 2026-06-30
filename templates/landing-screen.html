@@ -12,14 +12,14 @@
   <script>
     (function () {
       var t = localStorage.getItem("kouros-theme");
-      if (t !== "light" && t !== "dark" && t !== "kouros") t = "kouros";
+      if (t !== "light" && t !== "dark" && t !== "kouros") t = "light";
       var b = { light: "#f4f3ef", dark: "#0f1115", kouros: "#0a0f1e" };
       document.documentElement.style.background = b[t];
     })();
   </script>
 </head>
 <body>
-<div id="app-root" data-theme="kouros" class="app-shell">
+<div id="app-root" data-theme="light" class="app-shell">
 <script>
   (function () {
     var t = localStorage.getItem("kouros-theme");
@@ -31,7 +31,7 @@
 </script>
 
   <!-- Top bar -->
-  <header style="flex:none;min-height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)">
+  <header class="app-header">
     <div style="display:flex;align-items:center;gap:12px">
       <div class="k-badge" id="k-badge">
         <svg class="k-badge-svg" viewBox="0 0 240 600" aria-hidden="true">
@@ -64,7 +64,7 @@
           </button>
         </div>
       </div>
-      <div style="width:1px;height:18px;background:var(--line)"></div>
+      <div style="width:1px;height:18px;background:var(--muted);opacity:.45"></div>
       <div class="profile-wrap">
         <button type="button" class="profile-btn" id="profile-menu-btn" aria-haspopup="true" aria-expanded="false">
           <div class="profile-avatar">{{ current_user.initial }}</div>
@@ -83,14 +83,14 @@
   <div class="app-body">
 
     <!-- LEFT -->
-    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0">
+    <div style="flex:1;display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0">
 
       <!-- Watchlist -->
-      <section style="flex:1.7;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;min-height:0;overflow:hidden">
-        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--line2)">
+      <section style="flex:1.7;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+        <div class="panel-header-row">
           <div style="display:flex;align-items:baseline;gap:9px">
-            <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Watchlist</h2>
-            <span class="num" style="font-size:12px;color:var(--muted)">{{ watchCount }} symbols</span>
+            <h2 class="section-title">Watchlist</h2>
+            <span class="num section-count">{{ watchCount }} symbols</span>
           </div>
           <button type="button" class="btn-accent" id="add-ticker-btn">+ Add Ticker</button>
         </div>
@@ -165,11 +165,11 @@
       </section>
 
       <!-- Funds -->
-      <section style="flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;min-height:0;overflow:hidden">
-        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--line2)">
+      <section style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+        <div class="panel-header-row">
           <div style="display:flex;align-items:baseline;gap:9px">
-            <h2 style="font-size:14px;font-weight:700;letter-spacing:-.01em">Funds</h2>
-            <span class="num" style="font-size:12px;color:var(--muted)">{{ fundCount }} portfolios</span>
+            <h2 class="section-title">Funds</h2>
+            <span class="num section-count">{{ fundCount }} portfolios</span>
           </div>
           <button type="button" class="btn-accent">+ Add Fund</button>
         </div>
@@ -241,10 +241,9 @@
 
     <!-- RIGHT: single merged panel -->
     <aside style="flex:none;width:288px;display:flex;flex-direction:column;min-height:0">
-      <section style="flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;min-height:0;overflow:hidden">
-        <div style="flex:none;display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line2)">
-          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent)"></span>
-          <h2 style="font-size:13.5px;font-weight:700;letter-spacing:-.01em">Movers &amp; Predictions</h2>
+      <section style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+        <div class="panel-header-row">
+          <h2 class="section-title">Movers &amp; Predictions</h2>
         </div>
         <div style="flex:1;overflow-y:auto;min-height:0">
 

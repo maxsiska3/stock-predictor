@@ -20,21 +20,23 @@ body{
 }
 
 #app-root[data-theme="light"]{
-  --bg:#f4f3ef;--panel:#ffffff;--accent:#2f6df6;--accent-soft:#eef2fe;--accent-line:#dbe4fd;
+  --bg:#f4f3ef;--panel:#ffffff;--accent:#c9a84c;--accent-soft:#fef8ec;--accent-line:#f0d99a;
   --text:#1a1c20;--text2:#44484f;--muted:#8a9099;--muted2:#6b7079;
   --line:#e5e5e0;--line2:#eeeeea;--line3:#f3f3ef;
-  --hover:#fafafe;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fafaf8;
+  --hover:#fdf9f0;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fdfaf4;
   --scroll:#d4d4cf;
   --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;
+  --logo-fg:#0a0f1e;
 }
 
 #app-root[data-theme="dark"]{
-  --bg:#0f1115;--panel:#161a20;--accent:#4d86ff;--accent-soft:#1a2436;--accent-line:#2a3a57;
+  --bg:#0f1115;--panel:#161a20;--accent:#c9a84c;--accent-soft:#1e1a0e;--accent-line:#3a2e10;
   --text:#e7e9ec;--text2:#b3b9c2;--muted:#7b828c;--muted2:#9aa1aa;
   --line:#262c34;--line2:#202630;--line3:#1b212a;
-  --hover:#1b2129;--chart-bg:#11161d;--sub-bg:#12161d;--soft:#161a20;
+  --hover:#1d1a11;--chart-bg:#11161d;--sub-bg:#12161d;--soft:#161a20;
   --scroll:#2c333d;
   --up:#34d17f;--down:#f26173;--up-bg:#11271e;--down-bg:#2b1518;
+  --logo-fg:#0a0f1e;
 }
 
 #app-root[data-theme="kouros"]{
@@ -52,11 +54,52 @@ body{
   background:var(--bg);color:var(--text);
 }
 
-.app-body{flex:1;display:flex;gap:12px;padding:12px;min-height:0;overflow:hidden}
+/* ─── Header ──────────────────────────────────────────────── */
+.app-header{
+  flex:none;min-height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;
+  background:var(--panel);
+  border-bottom:2px solid var(--accent);
+}
+/* Subtle lift on light theme */
+#app-root[data-theme="light"] .app-header{
+  box-shadow:0 1px 12px rgba(0,0,0,.05);
+}
+
+/* ─── Panels ──────────────────────────────────────────────── */
+.panel-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+#app-root[data-theme="light"] .panel-card{
+  box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.03);
+}
+
+/* Section header row — signature 3px left accent strip */
+.panel-header-row{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;
+  border-bottom:1px solid var(--line2);
+  border-left:3px solid var(--accent);
+}
+
+.section-title{
+  font-family:'Archivo',sans-serif;
+  font-size:15px;font-weight:700;letter-spacing:-.02em;
+  color:var(--text);
+}
+.section-count{
+  font-size:12px;color:var(--muted);
+}
+
+.app-body{flex:1;display:flex;gap:14px;padding:14px;min-height:0;overflow:hidden}
 
 .app-footer{
   flex:none;border-top:1px solid var(--line);
-  padding:16px 0;text-align:center;
+  padding:14px 0;text-align:center;
   font-family:'Archivo',sans-serif;font-size:11px;
   letter-spacing:.2em;text-transform:uppercase;
   color:var(--muted);background:var(--panel);
@@ -74,13 +117,13 @@ body{
 }
 
 .k-badge{
-  width:36px;height:36px;flex-shrink:0;
+  width:40px;height:40px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  background:var(--accent);border-radius:6px;
+  background:var(--accent);border-radius:8px;
   transition:background .2s ease;
 }
 #app-root[data-theme="kouros"] .k-badge{background:var(--panel)}
-.k-badge-svg{display:block;width:auto;height:28px}
+.k-badge-svg{display:block;width:auto;height:30px}
 .logo-fill{fill:#fff}
 #app-root[data-theme="kouros"] .logo-fill{fill:#c9a84c}
 
@@ -114,8 +157,8 @@ body{
   align-items:center;
 }
 .table-row{
-  padding:6px 12px 6px 10px;border-bottom:1px solid var(--line3);cursor:pointer;
-  align-items:center;min-height:40px;
+  padding:8px 12px 8px 10px;border-bottom:1px solid var(--line3);cursor:pointer;
+  align-items:center;min-height:44px;
 }
 .col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -179,12 +222,11 @@ body{
 }
 .profile-btn:hover{background:var(--hover);color:var(--text2)}
 .profile-avatar{
-  width:20px;height:20px;border-radius:50%;
+  width:26px;height:26px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  background:var(--accent);font-weight:700;font-size:13px;color:var(--logo-fg);
+  background:var(--accent);font-weight:700;font-size:12px;color:var(--logo-fg);
 }
-#app-root[data-theme="light"] .profile-avatar,
-#app-root[data-theme="dark"] .profile-avatar{color:#fff}
+/* --logo-fg is #0a0f1e for all three themes now — no override needed */
 
 .theme-wrap{position:relative}
 .theme-menu{
@@ -218,8 +260,7 @@ body{
   border-radius:2px;color:var(--logo-fg);
   font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;
 }
-#app-root[data-theme="light"] .btn-accent,
-#app-root[data-theme="dark"] .btn-accent{color:#fff}
+/* Gold accent on all three themes — always use dark text on the button */
 
 /* Legacy predict page */
 .page-simple{
@@ -242,8 +283,7 @@ body{
   padding:8px 14px;border:none;border-radius:3px;
   background:var(--accent);color:var(--logo-fg);font-weight:600;cursor:pointer;margin-top:10px;
 }
-#app-root[data-theme="light"] .page-simple button,
-#app-root[data-theme="dark"] .page-simple button{color:#fff}
+/* page-simple button inherits --logo-fg (#0a0f1e) from theme — dark text on gold */
 
 /* ─── Dynamic watchlist modal ─────────────────────────────── */
 
@@ -401,41 +441,130 @@ body{
 }
 .symbol-cell{display:flex;align-items:center;justify-content:flex-start}
 
-/* ─── Auth pages ──────────────────────────────────────────── */
+/* ─── Auth pages — split layout ───────────────────────────── */
+
+/* Full-viewport two-column shell */
+.auth-split-root{
+  min-height:100vh;display:flex;flex-direction:row;
+  background:var(--bg);color:var(--text);
+  font-family:'Archivo',sans-serif;font-size:13px;
+}
+
+/* LEFT — always Kouros brand panel, fixed width */
+.auth-brand-panel{
+  flex:none;width:min(420px,45vw);
+  background:#0a0f1e;
+  display:flex;align-items:center;justify-content:center;
+  padding:48px 40px;
+  position:relative;overflow:hidden;
+}
+/* Subtle texture: a faint radial highlight */
+.auth-brand-panel::before{
+  content:'';position:absolute;
+  top:-120px;left:-80px;
+  width:500px;height:500px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(201,168,76,.09) 0%,transparent 70%);
+  pointer-events:none;
+}
+.auth-brand-inner{
+  display:flex;flex-direction:column;gap:36px;
+  position:relative;z-index:1;
+  max-width:300px;
+}
+.auth-brand-logo{display:flex;align-items:center;gap:14px}
+.k-badge--auth{
+  width:48px;height:48px;
+  background:#111827;border-radius:8px;
+}
+.k-badge--auth .k-badge-svg{height:36px}
+.auth-brand-name{
+  display:block;
+  font-family:'Marcellus SC',serif;font-size:22px;
+  letter-spacing:.12em;color:#e8eaf0;line-height:1.2;
+}
+.auth-brand-tag{
+  display:block;
+  font-family:'Archivo',sans-serif;font-size:10px;
+  letter-spacing:.3em;text-transform:uppercase;
+  color:#6b7585;margin-top:2px;
+}
+.auth-brand-quote{
+  font-family:'Marcellus SC',serif;font-size:18px;font-weight:400;
+  line-height:1.55;color:#c9a84c;letter-spacing:.01em;
+  border-left:3px solid #c9a84c;padding-left:16px;
+}
+.auth-feature-list{
+  list-style:none;display:flex;flex-direction:column;gap:10px;
+}
+.auth-feature-list li{
+  font-family:'Archivo',sans-serif;font-size:12.5px;
+  color:#b0b8c8;padding-left:16px;position:relative;
+}
+.auth-feature-list li::before{
+  content:'';position:absolute;left:0;top:7px;
+  width:5px;height:5px;border-radius:50%;
+  background:#c9a84c;
+}
+
+/* RIGHT — form panel */
+.auth-form-panel{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:48px 40px;
+}
+.auth-card{
+  width:min(380px,100%);
+}
+.auth-title{
+  font-family:'Archivo',sans-serif;font-size:22px;font-weight:700;
+  color:var(--text);margin-bottom:4px;letter-spacing:-.02em;
+}
+.auth-subtitle{font-size:13px;color:var(--muted);margin-bottom:24px}
+.auth-form{display:flex;flex-direction:column;gap:6px}
+.auth-label{font-size:12px;font-weight:600;color:var(--text2);margin-top:10px}
+.auth-input{
+  width:100%;padding:10px 12px;font-family:'Archivo',sans-serif;font-size:14px;
+  border:1px solid var(--line);border-radius:6px;
+  background:var(--panel);color:var(--text);box-sizing:border-box;
+  transition:border-color .15s,box-shadow .15s;
+}
+.auth-input:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+.auth-hint{font-size:11px;color:var(--muted);margin-top:-2px}
+.auth-submit{
+  width:100%;margin-top:16px;padding:11px 12px;
+  font-size:14px;border-radius:6px;
+}
+.auth-footer-text{
+  margin-top:20px;font-size:12.5px;color:var(--muted);text-align:center;
+}
+.auth-footer-text a{color:var(--accent);text-decoration:none}
+.auth-footer-text a:hover{text-decoration:underline}
+.auth-flash{
+  padding:9px 12px;border-radius:6px;font-size:12.5px;margin-bottom:12px;
+}
+.auth-flash-error{background:var(--down-bg);color:var(--down)}
+.auth-flash-info{background:var(--accent-soft);color:var(--text2)}
+
+/* Responsive: stack vertically on small screens */
+@media(max-width:700px){
+  .auth-split-root{flex-direction:column}
+  .auth-brand-panel{
+    width:100%;padding:32px 24px;
+    min-height:auto;
+  }
+  .auth-brand-quote{font-size:16px}
+  .auth-form-panel{padding:32px 24px}
+}
+
+/* Legacy fallback for old page-simple pages */
 .auth-main{
   flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:40px 24px;gap:28px;
 }
 .auth-brand{display:flex;align-items:center;gap:12px}
-.auth-card{
-  width:min(400px,100%);padding:28px 24px;
-  background:var(--panel);border:1px solid var(--line);border-radius:8px;
-}
-.auth-title{
-  font-family:'Archivo',sans-serif;font-size:20px;font-weight:700;
-  color:var(--text);margin-bottom:4px;
-}
-.auth-subtitle{font-size:13px;color:var(--muted);margin-bottom:20px}
-.auth-form{display:flex;flex-direction:column;gap:8px}
-.auth-label{font-size:12px;font-weight:600;color:var(--text2);margin-top:8px}
-.auth-input{
-  width:100%;padding:9px 11px;font-family:'Archivo',sans-serif;font-size:14px;
-  border:1px solid var(--line);border-radius:4px;
-  background:var(--bg);color:var(--text);box-sizing:border-box;
-}
-.auth-input:focus{outline:none;border-color:var(--accent)}
-.auth-hint{font-size:11px;color:var(--muted);margin-top:-4px}
-.auth-submit{width:100%;margin-top:12px;padding:9px 12px}
-.auth-footer-text{
-  margin-top:18px;font-size:12.5px;color:var(--muted);text-align:center;
-}
-.auth-footer-text a{color:var(--accent);text-decoration:none}
-.auth-footer-text a:hover{text-decoration:underline}
-.auth-flash{
-  padding:8px 10px;border-radius:4px;font-size:12.5px;margin-bottom:12px;
-}
-.auth-flash-error{background:var(--down-bg);color:var(--down)}
-.auth-flash-info{background:var(--accent-soft);color:var(--text2)}
 
 /* ─── Profile menu ────────────────────────────────────────── */
 .profile-wrap{position:relative}

@@ -1,7 +1,7 @@
 (function () {
   var STORAGE_KEY = "kouros-theme";
   var THEMES = ["light", "dark", "kouros"];
-  var DEFAULT_THEME = "kouros";
+  var DEFAULT_THEME = "light";
   var BG = { light: "#f4f3ef", dark: "#0f1115", kouros: "#0a0f1e" };
 
   function normalize(theme) {
