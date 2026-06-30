@@ -11,8 +11,10 @@ body{
 
 #app-root{
   --table-col-gap:10px;
-  /* 19 columns — sector (16th) widened; ~5px trimmed from each other column to balance */
-  --dashboard-cols:95px 75px 75px 75px 75px 95px 75px 75px 65px 65px 65px 80px 75px 75px 65px 180px 95px 75px 32px;
+  /* Watchlist: 24 columns (19 original + 5 position cols) */
+  --watchlist-cols:95px 75px 75px 75px 75px 95px 75px 75px 65px 65px 65px 80px 75px 75px 65px 180px 95px 75px 65px 80px 90px 90px 75px 32px;
+  /* Funds: 20 columns (adding vs-S&P col + action) */
+  --funds-cols:120px 65px 75px 80px 80px 95px 85px 90px 75px 65px 65px 80px 75px 150px 65px 150px 95px 80px 75px 32px;
   --sub-bg:var(--panel);
   --muted2:var(--muted);
   --soft:var(--hover);
@@ -132,10 +134,15 @@ body{
 ::-webkit-scrollbar-track{background:transparent}
 .row:hover{background:var(--hover)}
 
-.watchlist-grid,.funds-grid{
+.watchlist-grid{
   display:grid;align-items:center;
   column-gap:var(--table-col-gap);
-  grid-template-columns:var(--dashboard-cols);
+  grid-template-columns:var(--watchlist-cols);
+}
+.funds-grid{
+  display:grid;align-items:center;
+  column-gap:var(--table-col-gap);
+  grid-template-columns:var(--funds-cols);
 }
 .watchlist-grid>*,.funds-grid>*{
   display:flex;justify-content:center;align-items:center;
@@ -585,3 +592,50 @@ body{
   text-decoration:none;
 }
 .profile-menu-link:hover{background:var(--hover);color:var(--text)}
+
+/* ─── Sector chart (sidebar) ──────────────────────────────── */
+.sector-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.sector-row:last-child{margin-bottom:0}
+.sector-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.sector-name{
+  font-family:'Archivo',sans-serif;font-size:11.5px;font-weight:500;
+  color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.sector-pct{font-size:11.5px;font-weight:700;color:var(--text);flex-shrink:0}
+.sector-bar-track{
+  height:6px;border-radius:3px;background:var(--line2);overflow:hidden;
+}
+.sector-bar-fill{
+  height:100%;border-radius:3px;
+  background:var(--accent);
+  transition:width .3s ease;
+}
+
+/* ─── Position columns — clickable hint ───────────────────── */
+.pos-cell{cursor:pointer;transition:background .1s}
+.pos-cell:hover{background:var(--accent-soft)}
+.pos-add-hint{
+  font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.02em;
+}
+
+/* ─── Position edit modal ─────────────────────────────────── */
+.modal-panel-sm{
+  width:min(340px,92vw);max-height:min(480px,88vh);
+}
+.pos-field-group{display:flex;flex-direction:column;gap:5px}
+.pos-field-label{
+  font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;
+  color:var(--text2);
+}
+.pos-field-input{
+  width:100%;padding:9px 11px;
+  font-family:'Archivo',sans-serif;font-size:13px;
+  border:1px solid var(--line);border-radius:5px;
+  background:var(--bg);color:var(--text);
+  box-sizing:border-box;transition:border-color .15s,box-shadow .15s;
+}
+.pos-field-input:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+.pos-field-input::placeholder{color:var(--muted)}

@@ -30,7 +30,38 @@ CREATE TABLE IF NOT EXISTS watchlist (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
+CREATE TABLE IF NOT EXISTS positions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,
+    symbol       TEXT NOT NULL,
+    shares       REAL NOT NULL,
+    avg_cost     REAL NOT NULL,
+    purchased_at TEXT,
+    updated_at   TEXT NOT NULL,
+    UNIQUE(user_id, symbol),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_funds (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS fund_holdings (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_id INTEGER NOT NULL,
+    symbol  TEXT NOT NULL,
+    UNIQUE(fund_id, symbol),
+    FOREIGN KEY (fund_id) REFERENCES user_funds(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_watchlist_user  ON watchlist(user_id);
+CREATE INDEX IF NOT EXISTS idx_positions_user  ON positions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_funds_user ON user_funds(user_id);
+CREATE INDEX IF NOT EXISTS idx_fund_holdings   ON fund_holdings(fund_id);
 """
 
 
@@ -62,4 +93,11 @@ def get_all_watchlist_symbols():
     """Union of every symbol saved by any user — used to warm the market cache."""
     with get_connection() as conn:
         rows = conn.execute("SELECT DISTINCT symbol FROM watchlist ORDER BY symbol").fetchall()
+    return [row["symbol"] for row in rows]
+
+
+def get_all_fund_symbols():
+    """Union of every symbol in any user's fund — used to warm the market cache."""
+    with get_connection() as conn:
+        rows = conn.execute("SELECT DISTINCT symbol FROM fund_holdings ORDER BY symbol").fetchall()
     return [row["symbol"] for row in rows]
