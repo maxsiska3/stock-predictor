@@ -294,7 +294,7 @@
                 </span>
                 <span class="num cell-muted">{{ fund.updated_at }}</span>
                 {{ vs_index_cell(fund) }}
-                <span class="num cell-muted" title="Holdings with shares logged">{% if fund.shares is not none %}{{ fund.shares }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num cell-muted" title="Total shares across holdings with positions">{% if fund.shares is not none %}{{ "%.4g"|format(fund.shares) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_cost is not none %}${{ "%.2f"|format(fund.avg_cost) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.mkt_value is not none %}${{ "%.2f"|format(fund.mkt_value) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num {% if fund.gain_loss is not none %}{% if fund.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if fund.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(fund.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
@@ -474,10 +474,6 @@
         <div class="pos-field-group">
           <label class="pos-field-label" for="position-avgcost">Average cost per share ($)</label>
           <input type="number" id="position-avgcost" class="pos-field-input" placeholder="e.g. 178.50" step="any" min="0">
-        </div>
-        <div class="pos-field-group" id="position-date-group">
-          <label class="pos-field-label" for="position-date">Purchase date (optional)</label>
-          <input type="date" id="position-date" class="pos-field-input">
         </div>
         <p id="position-modal-message" class="modal-message"></p>
       </div>

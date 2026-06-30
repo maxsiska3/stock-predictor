@@ -280,25 +280,33 @@
     var fundIdInput = $("position-fund-id");
     var sharesInput = $("position-shares");
     var costInput   = $("position-avgcost");
-    var dateInput   = $("position-date");
-    var dateGroup   = $("position-date-group");
     var messageEl   = $("position-modal-message");
     var saveBtn     = $("position-save-btn");
     var deleteBtn   = $("position-delete-btn");
     var cancelBtn   = $("position-cancel-btn");
     var closeBtn    = $("position-modal-close");
+    var FUND_EXPAND_KEY = "kouros-expanded-funds";
 
     if (!modal) return;
 
-    function openModal(ticker, existingShares, existingCost, existingDate, fundId) {
+    function rememberExpandedFunds() {
+      var ids = [];
+      document.querySelectorAll(".fund-holdings-block:not([hidden])").forEach(function (block) {
+        var id = block.id.replace("fund-holdings-", "");
+        if (id) ids.push(id);
+      });
+      if (ids.length) {
+        sessionStorage.setItem(FUND_EXPAND_KEY, JSON.stringify(ids));
+      }
+    }
+
+    function openModal(ticker, existingShares, existingCost, fundId) {
       modal.hidden = false;
       fundIdInput.value = fundId || "";
       titleEl.textContent = fundId ? ("Fund position — " + ticker) : ("Position — " + ticker);
       tickerInput.value = ticker;
       sharesInput.value = existingShares || "";
       costInput.value   = existingCost || "";
-      dateInput.value   = existingDate || "";
-      if (dateGroup) dateGroup.style.display = fundId ? "none" : "";
       messageEl.textContent = "";
       deleteBtn.style.visibility = existingShares ? "visible" : "hidden";
       saveBtn.textContent = "Save";
@@ -313,7 +321,6 @@
       var fundId  = fundIdInput.value;
       var shares  = parseFloat(sharesInput.value);
       var avgCost = parseFloat(costInput.value);
-      var date    = dateInput.value || null;
 
       if (!ticker || isNaN(shares) || isNaN(avgCost)) {
         messageEl.textContent = "Please fill in shares and average cost";
@@ -333,7 +340,7 @@
         : "/api/positions";
       var body = fundId
         ? { shares: shares, avg_cost: avgCost }
-        : { symbol: ticker, shares: shares, avg_cost: avgCost, purchased_at: date };
+        : { symbol: ticker, shares: shares, avg_cost: avgCost };
 
       fetch(url, {
         method: "PUT",
@@ -347,6 +354,7 @@
             saveBtn.textContent = "Save";
             saveBtn.disabled = false;
           } else {
+            if (fundId) rememberExpandedFunds();
             window.location.reload();
           }
         })
@@ -368,8 +376,10 @@
 
       fetch(url, { method: "DELETE" })
         .then(function (r) {
-          if (r.ok) window.location.reload();
-          else alert("Could not remove position");
+          if (r.ok) {
+            if (fundId) rememberExpandedFunds();
+            window.location.reload();
+          } else alert("Could not remove position");
         })
         .catch(function () { alert("Request failed — try again"); });
     }
@@ -405,7 +415,7 @@
         var row    = cell.closest(".table-row");
         if (!row || !ticker) return;
         var pos = readPositionFromRow(row);
-        openModal(ticker, pos.existingShares, pos.existingCost, null, fundId);
+        openModal(ticker, pos.existingShares, pos.existingCost, fundId);
       });
     });
   })();
@@ -469,6 +479,28 @@
      FUND EXPAND
   ══════════════════════════════════════════════════════════ */
   (function initFundUI() {
+    var FUND_EXPAND_KEY = "kouros-expanded-funds";
+
+    function expandFund(fundId) {
+      var block = $("fund-holdings-" + fundId);
+      var row = document.querySelector('.fund-summary-row[data-fund-id="' + fundId + '"]');
+      var btn = row && row.querySelector(".fund-expand-btn");
+      if (!block) return;
+      block.hidden = false;
+      if (btn) {
+        btn.setAttribute("aria-expanded", "true");
+        btn.textContent = "▾";
+      }
+    }
+
+    try {
+      var saved = sessionStorage.getItem(FUND_EXPAND_KEY);
+      if (saved) {
+        JSON.parse(saved).forEach(expandFund);
+        sessionStorage.removeItem(FUND_EXPAND_KEY);
+      }
+    } catch (e) { /* ignore */ }
+
     document.querySelectorAll(".fund-expand-btn").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.stopPropagation();

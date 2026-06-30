@@ -257,9 +257,10 @@ def _aggregate_fund_positions(holding_rows):
     gain_loss = round(total_mkt - total_cost, 2)
     return_pct = round((gain_loss / total_cost) * 100, 2) if total_cost else None
 
+    total_shares = sum(h["shares"] for h in positioned)
     return {
-        "shares": len(positioned),
-        "avg_cost": round(total_cost / sum(h["shares"] for h in positioned), 2) if positioned else None,
+        "shares": round(total_shares, 4) if total_shares else None,
+        "avg_cost": round(total_cost / total_shares, 2) if total_shares else None,
         "mkt_value": round(total_mkt, 2),
         "gain_loss": gain_loss,
         "return_pct": return_pct,
@@ -311,8 +312,12 @@ def build_funds(market_data, user_funds):
         pct_change, dollar_change, total_value = _compute_fund_daily_change(holding_rows)
         up_holdings = [h for h in market_holdings if _is_up(h)]
         down_holdings = [h for h in market_holdings if _is_down(h)]
-        top = max(up_holdings, key=lambda x: x["pct_change"]) if up_holdings else None
-        worst = min(down_holdings, key=lambda x: x["pct_change"]) if down_holdings else None
+        top = max(up_holdings, key=lambda x: x["pct_change"]) if up_holdings else (
+            max(market_holdings, key=lambda x: x["pct_change"]) if market_holdings else None
+        )
+        worst = min(down_holdings, key=lambda x: x["pct_change"]) if down_holdings else (
+            min(market_holdings, key=lambda x: x["pct_change"]) if market_holdings else None
+        )
         pred_up_count = sum(1 for h in market_holdings if h["direction"] == 1)
         sectors = [h["sector"] for h in market_holdings if h.get("sector")]
         dominant_sector = Counter(sectors).most_common(1)[0][0] if sectors else None
