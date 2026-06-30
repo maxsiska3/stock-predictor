@@ -86,6 +86,13 @@ def _migrate_fund_holdings_positions(conn):
         conn.execute("ALTER TABLE fund_holdings ADD COLUMN avg_cost REAL")
 
 
+def _migrate_watchlist_quote_type(conn):
+    """Persist ETF vs stock classification without relying on yfinance .info."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(watchlist)").fetchall()}
+    if "quote_type" not in cols:
+        conn.execute("ALTER TABLE watchlist ADD COLUMN quote_type TEXT")
+
+
 def _configure_connection(conn):
     """WAL + busy timeout so concurrent reads/writes don't fail on deploy."""
     conn.execute("PRAGMA foreign_keys = ON")
@@ -118,6 +125,7 @@ def init_db():
     with get_connection() as conn:
         conn.executescript(SCHEMA)
         _migrate_fund_holdings_positions(conn)
+        _migrate_watchlist_quote_type(conn)
         commit_with_retry(conn)
     logger.info("SQLite ready at %s (WAL mode)", DB_PATH)
 

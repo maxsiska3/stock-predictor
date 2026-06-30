@@ -2,13 +2,9 @@
 #
 # Each function takes user_id. Flask routes pass current_user.id from Flask-Login.
 
-import yfinance as yf
-
-from utils.yfinance_setup import configure_yfinance
 from utils.db import commit_with_retry, get_connection, utc_now_iso
 from utils.market import clear_cache
-
-configure_yfinance()
+from utils.ticker_search import lookup_quote_type
 
 MAX_TICKERS = 25
 
@@ -54,6 +50,41 @@ def load_watchlist(user_id, conn=None):
     return [row["symbol"] for row in rows]
 
 
+def load_watchlist_quote_types(user_id):
+    """Return {symbol: quote_type} for the user's watchlist."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT symbol, quote_type FROM watchlist WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+    return {
+        row["symbol"]: (row["quote_type"] or "EQUITY").upper()
+        for row in rows
+    }
+
+
+def ensure_watchlist_quote_types(user_id):
+    """Backfill quote_type for legacy rows using Yahoo search (not .info)."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, symbol FROM watchlist
+            WHERE user_id = ? AND (quote_type IS NULL OR quote_type = '')
+            """,
+            (user_id,),
+        ).fetchall()
+        if not rows:
+            return
+
+        for row in rows:
+            quote_type = lookup_quote_type(row["symbol"])
+            conn.execute(
+                "UPDATE watchlist SET quote_type = ? WHERE id = ?",
+                (quote_type, row["id"]),
+            )
+        commit_with_retry(conn)
+
+
 def save_watchlist(user_id, tickers):
     """Replace the user's entire watchlist with a normalized list."""
     normalized = _normalize_list(tickers)
@@ -64,21 +95,40 @@ def save_watchlist(user_id, tickers):
         conn.execute("DELETE FROM watchlist WHERE user_id = ?", (user_id,))
         for symbol in normalized:
             conn.execute(
-                "INSERT INTO watchlist (user_id, symbol, added_at) VALUES (?, ?, ?)",
-                (user_id, symbol, utc_now_iso()),
+                """
+                INSERT INTO watchlist (user_id, symbol, added_at, quote_type)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, symbol, utc_now_iso(), lookup_quote_type(symbol)),
             )
         commit_with_retry(conn)
 
 
 def _validate_ticker(symbol):
     try:
+        import yfinance as yf
+        from utils.yfinance_setup import configure_yfinance
+        configure_yfinance()
         hist = yf.Ticker(symbol).history(period="5d")
         return hist is not None and not hist.empty
     except Exception:
         return False
 
 
-def add_tickers(user_id, symbols, trusted_from_search=True):
+def _normalize_quote_types(quote_types):
+    if not quote_types:
+        return {}
+    normalized = {}
+    for raw_sym, raw_type in quote_types.items():
+        try:
+            sym = _normalize_symbol(raw_sym)
+        except WatchlistError:
+            continue
+        normalized[sym] = str(raw_type or "EQUITY").strip().upper() or "EQUITY"
+    return normalized
+
+
+def add_tickers(user_id, symbols, quote_types=None, trusted_from_search=True):
     """Batch add symbols for one user. Same return shape as before."""
     if not symbols:
         raise WatchlistError("No tickers provided")
@@ -87,6 +137,7 @@ def add_tickers(user_id, symbols, trusted_from_search=True):
         current = load_watchlist(user_id, conn=conn)
         current_set = set(current)
         added, skipped, failed = [], [], []
+        type_map = _normalize_quote_types(quote_types)
 
         for raw in symbols:
             try:
@@ -115,9 +166,13 @@ def add_tickers(user_id, symbols, trusted_from_search=True):
 
         if added:
             for symbol in added:
+                quote_type = type_map.get(symbol) or lookup_quote_type(symbol)
                 conn.execute(
-                    "INSERT INTO watchlist (user_id, symbol, added_at) VALUES (?, ?, ?)",
-                    (user_id, symbol, utc_now_iso()),
+                    """
+                    INSERT INTO watchlist (user_id, symbol, added_at, quote_type)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (user_id, symbol, utc_now_iso(), quote_type),
                 )
             commit_with_retry(conn)
 
