@@ -3,7 +3,7 @@ __pycache__/
 .DS_Store
 venv/
 .env
-*.pkl
+# model artifacts are committed so Render can load them at startup
 data/watchlist.json
 data/kouros.db
 data/*.db
