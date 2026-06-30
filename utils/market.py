@@ -149,13 +149,17 @@ def _ticker_info(ticker):
         return (cached or {}).get("info") or {}
 
     info = {}
-    try:
-        time.sleep(_YF_PAUSE_SEC)
-        info = yf.Ticker(ticker, session=_SESSION).info or {}
-    except Exception as exc:
-        logger.warning("ticker info failed for %s: %s", ticker, exc)
-        if _is_rate_limited(exc):
-            _set_cooldown("info")
+    for attempt in range(2):
+        try:
+            time.sleep(_YF_PAUSE_SEC if attempt == 0 else _RATE_LIMIT_BACKOFF_SEC)
+            info = yf.Ticker(ticker, session=_SESSION).info or {}
+            if info:
+                break
+        except Exception as exc:
+            logger.warning("ticker info failed for %s (attempt %d): %s: %s", ticker, attempt + 1, type(exc).__name__, exc)
+            if _is_rate_limited(exc):
+                _set_cooldown("info")
+                break
 
     _info_cache[ticker] = {"info": info, "at": now}
     return info
