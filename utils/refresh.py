@@ -8,6 +8,7 @@ import logging
 import threading
 import time
 
+from utils.config import BENCHMARK_TICKERS
 from utils.db import get_all_fund_symbols, get_all_watchlist_symbols
 from utils.market import fetch_market_data
 
@@ -15,15 +16,12 @@ logger = logging.getLogger(__name__)
 
 REFRESH_INTERVAL_SEC = 60
 
-# SPY is always fetched for the fund benchmark comparison.
-_ALWAYS_FETCH = ["SPY"]
-
 
 def get_union_fetch_tickers():
-    """All symbols any user tracks across watchlists and funds, plus SPY."""
+    """All symbols any user tracks across watchlists and funds, plus index benchmarks."""
     symbols = set(get_all_watchlist_symbols())
     symbols.update(get_all_fund_symbols())
-    symbols.update(_ALWAYS_FETCH)
+    symbols.update(BENCHMARK_TICKERS)
     return sorted(symbols)
 
 

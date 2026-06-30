@@ -36,18 +36,34 @@ def clear_cache(tickers=None):
 
 def _slice_ticker(df, ticker):
     """
-    Pull one ticker's slice out of a yfinance batch download DataFrame.
-    Returns None if the data is missing or empty for that ticker.
+    Pull one ticker's slice out of a yfinance download DataFrame.
+
+    yfinance uses different MultiIndex structures depending on context:
+      - batch download (group_by="ticker"): columns are (ticker, field) → ticker at level 0
+      - single-ticker download in yfinance 1.4.x: columns are (field, ticker) → ticker at level 1
+
+    We try level 0 first (covers the common batch case), then fall back to level 1.
     """
     if df is None or df.empty:
         return None
     if isinstance(df.columns, pd.MultiIndex):
-        if ticker not in df.columns.get_level_values(1):
+        if ticker in df.columns.get_level_values(0):
+            sliced = df.xs(ticker, axis=1, level=0)
+        elif ticker in df.columns.get_level_values(1):
+            sliced = df.xs(ticker, axis=1, level=1)
+        else:
             return None
-        sliced = df.xs(ticker, axis=1, level=1)
         return None if sliced.dropna(how="all").empty else sliced.copy()
-    # Single-ticker download — flat columns, no MultiIndex
+    # Flat columns — single-ticker download that returned a plain DataFrame
     return None if df.dropna(how="all").empty else df.copy()
+
+
+def _format_clock_time(when=None):
+    when = when or datetime.now()
+    try:
+        return when.strftime("%-I:%M %p")
+    except ValueError:
+        return when.strftime("%I:%M %p").lstrip("0")
 
 
 def _safe_float(val, digits=2):
@@ -111,8 +127,8 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         vol_sum = ticker_intraday["Volume"].sum()
         volume = int(vol_sum.iloc[0] if hasattr(vol_sum, "iloc") else vol_sum)
 
-    change = current_price - prev_close
-    pct_change = round((change / prev_close) * 100, 2)
+    change = round(current_price - prev_close, 2)
+    pct_change = round((change / prev_close) * 100, 2) if prev_close else 0.0
 
     week_52_high = week_52_low = None
     if ticker_year is not None and not ticker_year.empty:
@@ -129,6 +145,7 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         macd = _safe_float(last["macd"], 2)
 
     info = _ticker_info(ticker)
+    quote_type = (info.get("quoteType") or "EQUITY").upper()
     sector = info.get("sector")
     p_e = _safe_float(info.get("trailingPE"), 1)
     eps = _safe_float(info.get("trailingEps"), 2)
@@ -142,6 +159,7 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
 
     return {
         "ticker": ticker,
+        "quote_type": quote_type,
         "price": current_price,
         "change": change,
         "pct_change": pct_change,
@@ -160,7 +178,7 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         "sector": sector,
         "direction": int(prediction[0]),
         "confidence": round(float(confidence[0].max()) * 100, 2),
-        "updated_at": datetime.now().strftime("%-I:%M %p"),
+        "updated_at": _format_clock_time(),
     }
 
 

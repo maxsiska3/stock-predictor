@@ -82,11 +82,72 @@
   <!-- Body -->
   <div class="app-body">
 
+    {# Shared row macro — watchlist rows and expanded fund holdings use the same columns #}
+    {% macro vs_index_header() %}
+    <span class="vs-index-header">
+      <span class="vs-index-label">vs</span>
+      <select class="benchmark-select" name="dashboard-benchmark" aria-label="Benchmark index">
+        {% for b in benchmarkOptions %}
+        <option value="{{ b.key }}" title="{{ b.label }}">{{ b.short }}</option>
+        {% endfor %}
+      </select>
+    </span>
+    {% endmacro %}
+
+    {% macro vs_index_cell(row) %}
+    <span class="num vs-index-cell"
+      data-vs-spy="{{ row.vs_spy if row.vs_spy is not none else '' }}"
+      data-vs-dow="{{ row.vs_dow if row.vs_dow is not none else '' }}"
+      data-vs-nasdaq="{{ row.vs_nasdaq if row.vs_nasdaq is not none else '' }}">—</span>
+    {% endmacro %}
+
+    {% macro watchlist_row(stock, fund_id=none) %}
+    {% set chg_sign  = "+" if stock.change >= 0 else "-" %}
+    {% set pred_color = "var(--up)" if stock.direction == 1 else "var(--down)" %}
+    {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
+    {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
+    {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
+    <div class="row watchlist-grid table-row{% if fund_id %} fund-holding-row{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
+      <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}{{ stock.ticker }}</span>
+      <span class="num">${{ "%.2f"|format(stock.price) }}</span>
+      <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
+      <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
+      <span class="num cell-muted">{{ stock.volume|vol }}</span>
+      <div class="day-chart" aria-hidden="true"></div>
+      <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% elif stock.eps_note %}<span class="field-note">{{ stock.eps_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% elif stock.beta_note %}<span class="field-note">{{ stock.beta_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="col-text">{% if stock.sector %}{{ stock.sector }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="pred-cell">
+        <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
+      </span>
+      <span class="num cell-muted">{{ stock.updated_at }}</span>
+      {{ vs_index_cell(stock) }}
+      <span class="num pos-cell pos-shares{% if fund_id %} fund-pos-cell{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>{% if stock.shares is not none %}{{ "%.4g"|format(stock.shares) }}{% else %}<span class="na pos-add-hint">+ Add</span>{% endif %}</span>
+      <span class="num pos-cell pos-avgcost{% if fund_id %} fund-pos-cell{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>{% if stock.avg_cost is not none %}${{ "%.2f"|format(stock.avg_cost) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num">{% if stock.mkt_value is not none %}${{ "%.2f"|format(stock.mkt_value) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num {% if stock.gain_loss is not none %}{% if stock.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(stock.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="num {% if stock.return_pct is not none %}{% if stock.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(stock.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
+      <span class="col-action">
+        {% if not fund_id %}
+        <button type="button" class="row-action-btn remove-ticker-btn" data-ticker="{{ stock.ticker }}" aria-label="Remove {{ stock.ticker }}">×</button>
+        {% endif %}
+      </span>
+    </div>
+    {% endmacro %}
+
     <!-- LEFT -->
-    <div style="flex:1;display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0">
+    <div class="dashboard-main">
+      <div class="dashboard-hscroll-track">
 
       <!-- Watchlist -->
-      <section style="flex:1.7;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+      <section class="panel-card dashboard-panel dashboard-panel--watchlist">
         <div class="panel-header-row">
           <div style="display:flex;align-items:baseline;gap:9px">
             <h2 class="section-title">Watchlist</h2>
@@ -95,8 +156,8 @@
           <button type="button" class="btn-accent" id="add-ticker-btn">+ Add Ticker</button>
         </div>
 
-        <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
-          <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="dashboard-table-wrap">
+          <div class="dashboard-table-inner">
             <div class="watchlist-grid table-header">
               <span class="col-ident">Symbol</span>
               <span>Price</span>
@@ -116,6 +177,7 @@
               <span>Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
               <span>Updated</span>
+              {{ vs_index_header() }}
               <span>Shares</span>
               <span>Avg Cost</span>
               <span>Mkt Value</span>
@@ -123,68 +185,50 @@
               <span>Return %</span>
               <span class="col-action" aria-hidden="true"></span>
             </div>
-            <div style="flex:1;overflow-y:auto;min-height:0">
-              {% if watchlist %}
-              {% for stock in watchlist %}
-              {% set chg_color = "var(--up)" if stock.change >= 0 else "var(--down)" %}
-              {% set chg_sign  = "+" if stock.change >= 0 else "-" %}
-              {% set pred_color = "var(--up)" if stock.direction == 1 else "var(--down)" %}
-              {% set pred_bg    = "var(--up-bg)" if stock.direction == 1 else "var(--down-bg)" %}
-              {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
-              {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
-              <div class="row watchlist-grid table-row" data-ticker="{{ stock.ticker }}">
-                <span class="col-ident symbol-cell">{{ stock.ticker }}</span>
-                <span class="num">${{ "%.2f"|format(stock.price) }}</span>
-                <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
-                <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
-                <span class="num cell-muted">{{ stock.volume|vol }}</span>
-                <div class="day-chart" aria-hidden="true"></div>
-                <span class="num">{% if stock.week_52_high is not none %}${{ "%.2f"|format(stock.week_52_high) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.week_52_low is not none %}${{ "%.2f"|format(stock.week_52_low) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.p_e is not none %}{{ "%.1f"|format(stock.p_e) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.eps is not none %}${{ "%.2f"|format(stock.eps) }}{% elif stock.eps_note %}<span class="field-note">{{ stock.eps_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.rsi is not none %}{{ "%.1f"|format(stock.rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.bollinger_pos is not none %}{{ "%.2f"|format(stock.bollinger_pos) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.volatility is not none %}{{ "%.4f"|format(stock.volatility) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.macd is not none %}{{ "%.2f"|format(stock.macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.beta is not none %}{{ "%.2f"|format(stock.beta) }}{% elif stock.beta_note %}<span class="field-note">{{ stock.beta_note }}</span>{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="col-text">{% if stock.sector %}{{ stock.sector }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="pred-cell">
-                  <span class="num pred-badge" style="background:{{ pred_bg }};color:{{ pred_color }}"><span class="pred-arrow">{{ arrow }}</span><span class="pred-pct">{{ "%.2f"|format(stock.confidence) }}%</span></span>
-                </span>
-                <span class="num cell-muted">{{ stock.updated_at }}</span>
-                <!-- Position columns — editable by clicking -->
-                <span class="num pos-cell pos-shares" data-ticker="{{ stock.ticker }}" title="Click to set position">{% if stock.shares is not none %}{{ "%.4g"|format(stock.shares) }}{% else %}<span class="na pos-add-hint">+ Add</span>{% endif %}</span>
-                <span class="num pos-cell pos-avgcost" data-ticker="{{ stock.ticker }}" title="Click to set position">{% if stock.avg_cost is not none %}${{ "%.2f"|format(stock.avg_cost) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num">{% if stock.mkt_value is not none %}${{ "%.2f"|format(stock.mkt_value) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num {% if stock.gain_loss is not none %}{% if stock.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(stock.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="num {% if stock.return_pct is not none %}{% if stock.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if stock.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(stock.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="col-action">
-                  <button type="button" class="row-action-btn remove-ticker-btn" data-ticker="{{ stock.ticker }}" aria-label="Remove {{ stock.ticker }}">×</button>
-                </span>
-              </div>
-              {% endfor %}
+            <div class="dashboard-table-body">
+
+              {% if watchlist_stocks or watchlist_etfs %}
+
+                {% if watchlist_stocks %}
+                <div class="watchlist-section-header watchlist-grid">
+                  <span style="grid-column:1/-1">Stocks <span class="section-header-count">{{ watchlist_stocks|length }}</span></span>
+                </div>
+                {% for stock in watchlist_stocks %}
+                  {{ watchlist_row(stock) }}
+                {% endfor %}
+                {% endif %}
+
+                {% if watchlist_etfs %}
+                <div class="watchlist-section-header watchlist-grid">
+                  <span style="grid-column:1/-1">ETFs <span class="section-header-count">{{ watchlist_etfs|length }}</span></span>
+                </div>
+                {% for stock in watchlist_etfs %}
+                  {{ watchlist_row(stock) }}
+                {% endfor %}
+                {% endif %}
+
               {% else %}
               <div class="watchlist-empty">
                 No symbols yet. Click <strong>+ Add Ticker</strong> to build your watchlist.
               </div>
               {% endif %}
+
             </div>
           </div>
         </div>
       </section>
 
       <!-- Funds -->
-      <section style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+      <section class="panel-card dashboard-panel dashboard-panel--funds">
         <div class="panel-header-row">
-          <div style="display:flex;align-items:baseline;gap:9px">
+          <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">
             <h2 class="section-title">Funds</h2>
             <span class="num section-count">{{ fundCount }} portfolios</span>
           </div>
           <button type="button" class="btn-accent" id="add-fund-btn">+ Add Fund</button>
         </div>
-        <div style="flex:1;min-height:0;overflow-x:auto;display:flex;flex-direction:column">
-          <div style="min-width:max-content;flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="dashboard-table-wrap">
+          <div class="dashboard-table-inner">
             <div class="funds-grid table-header">
               <span class="col-ident">Fund</span>
               <span>Holdings</span>
@@ -199,27 +243,36 @@
               <span>Avg RSI</span>
               <span>Avg Boll Pos</span>
               <span>Avg Vol</span>
-              <span>Tickers</span>
+              <span>Avg MACD</span>
               <span>Beta</span>
               <span>Dominant Sector</span>
               <span class="pred-cell">Pred · Tmr</span>
-              <span>vs S&amp;P 500</span>
               <span>Updated</span>
+              {{ vs_index_header() }}
+              <span>Shares</span>
+              <span>Avg Cost</span>
+              <span>Mkt Value</span>
+              <span>Gain / Loss</span>
+              <span>Return %</span>
               <span class="col-action" aria-hidden="true"></span>
             </div>
-            <div style="flex:1;overflow-y:auto;min-height:0">
+            <div class="dashboard-table-body">
               {% if funds %}
               {% for fund in funds %}
-              {% set chg_color = "var(--up)" if fund.pct_change is not none and fund.pct_change >= 0 else "var(--down)" %}
-              {% set chg_sign  = "+" if fund.pct_change is not none and fund.pct_change >= 0 else "-" %}
+              {% set pct_sign  = "+" if fund.pct_change is not none and fund.pct_change >= 0 else "-" %}
+              {% set dol_sign  = "+" if fund.dollar_change is not none and fund.dollar_change >= 0 else "-" %}
               {% set pred_color = "var(--up)" if fund.direction == 1 else "var(--down)" %}
               {% set pred_bg    = "var(--up-bg)" if fund.direction == 1 else "var(--down-bg)" %}
               {% set arrow      = "▲" if fund.direction == 1 else "▼" %}
-              <div class="row funds-grid table-row" data-fund-id="{{ fund.id }}">
-                <span class="col-ident">{{ fund.name }}</span>
+              {% set gl_sign    = "+" if fund.gain_loss is not none and fund.gain_loss >= 0 else "" %}
+              <div class="row funds-grid table-row fund-summary-row" data-fund-id="{{ fund.id }}">
+                <span class="col-ident fund-name-cell">
+                  <button type="button" class="fund-expand-btn" aria-expanded="false" aria-label="Expand {{ fund.name }}">▸</button>
+                  <span class="fund-name-text" title="{{ fund.name }}">{{ fund.name }}</span>
+                </span>
                 <span class="num">{{ fund.holdings }}</span>
-                <span class="num cell-pct {% if fund.pct_change is not none %}{% if fund.pct_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.pct_change is not none %}{{ chg_sign }}{{ "%.2f"|format(fund.pct_change|abs) }}%{% else %}—{% endif %}</span>
-                <span class="num {% if fund.dollar_change is not none %}{% if fund.dollar_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.dollar_change is not none %}{{ chg_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
+                <span class="num cell-pct {% if fund.pct_change is not none %}{% if fund.pct_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.pct_change is not none %}{{ pct_sign }}{{ "%.2f"|format(fund.pct_change|abs) }}%{% else %}—{% endif %}</span>
+                <span class="num {% if fund.dollar_change is not none %}{% if fund.dollar_change >= 0 %}cell-up{% else %}cell-down{% endif %}{% else %}na{% endif %}">{% if fund.dollar_change is not none %}{{ dol_sign }}${{ "%.2f"|format(fund.dollar_change|abs) }}{% else %}—{% endif %}</span>
                 <span class="num">{% if fund.total_value is not none %}${{ fund.total_value|money }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <div class="day-chart" aria-hidden="true"></div>
                 <span class="col-text">{% if fund.top_performer %}{{ fund.top_performer }}{% else %}<span class="na">—</span>{% endif %}</span>
@@ -229,7 +282,7 @@
                 <span class="num">{% if fund.avg_rsi is not none %}{{ "%.1f"|format(fund.avg_rsi) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_boll is not none %}{{ "%.2f"|format(fund.avg_boll) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_vol is not none %}{{ "%.4f"|format(fund.avg_vol) }}{% else %}<span class="na">—</span>{% endif %}</span>
-                <span class="col-text cell-muted">{{ fund.tickers }}</span>
+                <span class="num">{% if fund.avg_macd is not none %}{{ "%.2f"|format(fund.avg_macd) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="num">{% if fund.avg_beta is not none %}{{ "%.2f"|format(fund.avg_beta) }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="col-text">{% if fund.dominant_sector %}{{ fund.dominant_sector }}{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="pred-cell">
@@ -239,15 +292,21 @@
                   <span class="num pred-badge" style="background:var(--sub-bg);color:var(--muted)"><span class="pred-arrow">—</span><span class="pred-pct">—%</span></span>
                   {% endif %}
                 </span>
-                <span class="num {% if fund.vs_spy is not none %}{% if fund.vs_spy >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">
-                  {% if fund.vs_spy is not none %}
-                    {% if fund.vs_spy >= 0 %}+{% endif %}{{ "%.2f"|format(fund.vs_spy) }}%
-                  {% else %}<span class="na">—</span>{% endif %}
-                </span>
                 <span class="num cell-muted">{{ fund.updated_at }}</span>
+                {{ vs_index_cell(fund) }}
+                <span class="num cell-muted" title="Holdings with shares logged">{% if fund.shares is not none %}{{ fund.shares }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.avg_cost is not none %}${{ "%.2f"|format(fund.avg_cost) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num">{% if fund.mkt_value is not none %}${{ "%.2f"|format(fund.mkt_value) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num {% if fund.gain_loss is not none %}{% if fund.gain_loss >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if fund.gain_loss is not none %}{{ gl_sign }}${{ "%.2f"|format(fund.gain_loss|abs) }}{% else %}<span class="na">—</span>{% endif %}</span>
+                <span class="num {% if fund.return_pct is not none %}{% if fund.return_pct >= 0 %}cell-up{% else %}cell-down{% endif %}{% endif %}">{% if fund.return_pct is not none %}{{ gl_sign }}{{ "%.2f"|format(fund.return_pct|abs) }}%{% else %}<span class="na">—</span>{% endif %}</span>
                 <span class="col-action">
                   <button type="button" class="row-action-btn remove-fund-btn" data-fund-id="{{ fund.id }}" aria-label="Delete {{ fund.name }}">×</button>
                 </span>
+              </div>
+              <div class="fund-holdings-block" id="fund-holdings-{{ fund.id }}" hidden>
+                {% for holding in fund.holding_rows %}
+                  {{ watchlist_row(holding, fund.id) }}
+                {% endfor %}
               </div>
               {% endfor %}
               {% else %}
@@ -260,17 +319,21 @@
         </div>
       </section>
 
+      </div>
     </div>
 
     <!-- RIGHT: sidebar -->
-    <aside style="flex:none;width:288px;display:flex;flex-direction:column;gap:14px;min-height:0">
+    <aside class="dashboard-sidebar">
 
       <!-- Movers & Predictions -->
-      <section style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden" class="panel-card">
+      <section class="panel-card dashboard-panel dashboard-panel--sidebar">
         <div class="panel-header-row">
-          <h2 class="section-title">Movers &amp; Predictions</h2>
+          <div>
+            <h2 class="section-title">Movers &amp; Predictions</h2>
+            <span class="section-subtitle">from your watchlist</span>
+          </div>
         </div>
-        <div style="flex:1;overflow-y:auto;min-height:0">
+        <div class="dashboard-table-body">
 
           {% for group in predGroups %}
           <div style="display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--sub-bg);border-bottom:1px solid var(--line2);border-top:1px solid var(--line2)">
@@ -323,9 +386,12 @@
 
       <!-- Sector Exposure -->
       {% if sectorGroups %}
-      <section style="flex:none;display:flex;flex-direction:column;overflow:hidden" class="panel-card">
+      <section class="panel-card">
         <div class="panel-header-row">
-          <h2 class="section-title">Sector Exposure</h2>
+          <div>
+            <h2 class="section-title">Sector Exposure</h2>
+            <span class="section-subtitle">from your watchlist</span>
+          </div>
         </div>
         <div style="padding:10px 14px 14px">
           {% for sg in sectorGroups %}
@@ -376,13 +442,12 @@
         <span class="modal-title" id="add-fund-title">Create Fund</span>
         <button type="button" class="modal-close-btn" id="add-fund-cancel" aria-label="Close">✕</button>
       </div>
-      <div class="modal-search-wrap">
+      <div class="modal-search-wrap" style="display:flex;flex-direction:column;gap:8px">
         <input type="text" id="fund-name-input" placeholder="Fund name (e.g. Growth Portfolio)…" autocomplete="off" maxlength="60">
+        <input type="text" id="fund-ticker-search" placeholder="Search symbols to add…" autocomplete="off" spellcheck="false">
       </div>
-      <p class="modal-hint">Select tickers from your watchlist to include in this fund</p>
-      <div id="fund-ticker-list" class="ticker-search-results">
-        <!-- populated by JS from watchlistSymbols -->
-      </div>
+      <p class="modal-hint">Click a result to select it — search any symbol, not just your watchlist</p>
+      <div id="fund-ticker-results" class="ticker-search-results"></div>
       <p id="add-fund-message" class="modal-message"></p>
       <div class="modal-footer">
         <span id="add-fund-selected-count" class="modal-selected-count">0 selected</span>
@@ -401,6 +466,7 @@
       </div>
       <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
         <input type="hidden" id="position-ticker">
+        <input type="hidden" id="position-fund-id">
         <div class="pos-field-group">
           <label class="pos-field-label" for="position-shares">Shares owned</label>
           <input type="number" id="position-shares" class="pos-field-input" placeholder="e.g. 10.5" step="any" min="0">
@@ -409,7 +475,7 @@
           <label class="pos-field-label" for="position-avgcost">Average cost per share ($)</label>
           <input type="number" id="position-avgcost" class="pos-field-input" placeholder="e.g. 178.50" step="any" min="0">
         </div>
-        <div class="pos-field-group">
+        <div class="pos-field-group" id="position-date-group">
           <label class="pos-field-label" for="position-date">Purchase date (optional)</label>
           <input type="date" id="position-date" class="pos-field-input">
         </div>

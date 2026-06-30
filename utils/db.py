@@ -69,11 +69,21 @@ def utc_now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _migrate_fund_holdings_positions(conn):
+    """Add shares/avg_cost to fund_holdings for existing databases."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(fund_holdings)").fetchall()}
+    if "shares" not in cols:
+        conn.execute("ALTER TABLE fund_holdings ADD COLUMN shares REAL")
+    if "avg_cost" not in cols:
+        conn.execute("ALTER TABLE fund_holdings ADD COLUMN avg_cost REAL")
+
+
 def init_db():
     """Create data directory and tables if they don't exist."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_connection() as conn:
         conn.executescript(SCHEMA)
+        _migrate_fund_holdings_positions(conn)
         conn.commit()
 
 

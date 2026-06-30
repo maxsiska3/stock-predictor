@@ -8,8 +8,10 @@ from datetime import datetime, timedelta
 
 import yfinance as yf
 
-# Only show types that make sense on a stock dashboard (skip indices, currencies, etc.).
-_ALLOWED_QUOTE_TYPES = {"EQUITY", "ETF"}
+# Block non-investable types. Using a blocklist (not allowlist) because yfinance
+# returns different quoteType strings across versions (e.g. "EQUITY", "equity",
+# "commonStock"). Blocking known noise types is more robust.
+_BLOCKED_QUOTE_TYPES = {"INDEX", "CURRENCY", "CRYPTOCURRENCY", "FUTURE", "OPTION", "FOREX"}
 
 # In-memory cache — same idea as utils/market.py (lives until server restarts).
 # We cache symbol+name rows from yfinance, NOT in_watchlist (that changes when user adds/removes).
@@ -60,7 +62,7 @@ def _parse_quotes(quotes, limit):
         seen_symbols.add(symbol)
 
         quote_type = (quote.get("quoteType") or "").upper()
-        if quote_type and quote_type not in _ALLOWED_QUOTE_TYPES:
+        if quote_type in _BLOCKED_QUOTE_TYPES:
             continue
 
         name = quote.get("longname") or quote.get("shortname") or symbol
