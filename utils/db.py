@@ -3,14 +3,22 @@
 # Single file database (kouros.db) on disk. Set DATABASE_PATH env var on Render
 # to point at a persistent volume (e.g. /data/kouros.db).
 
+import logging
 import os
 import sqlite3
+import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DB_PATH = Path(os.environ.get("DATABASE_PATH", DATA_DIR / "kouros.db"))
+
+# Serialize SQLite access — gunicorn + background refresh thread share one DB file.
+_db_lock = threading.Lock()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -78,25 +86,53 @@ def _migrate_fund_holdings_positions(conn):
         conn.execute("ALTER TABLE fund_holdings ADD COLUMN avg_cost REAL")
 
 
+def _configure_connection(conn):
+    """WAL + busy timeout so concurrent reads/writes don't fail on deploy."""
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute("PRAGMA synchronous = NORMAL")
+
+
+def _connect():
+    return sqlite3.connect(str(DB_PATH), timeout=30.0, check_same_thread=False)
+
+
+def commit_with_retry(conn, attempts=5):
+    """Commit, retrying briefly if SQLite reports a transient lock."""
+    delay = 0.05
+    for attempt in range(attempts):
+        try:
+            conn.commit()
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.5)
+
+
 def init_db():
     """Create data directory and tables if they don't exist."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_connection() as conn:
         conn.executescript(SCHEMA)
         _migrate_fund_holdings_positions(conn)
-        conn.commit()
+        commit_with_retry(conn)
+    logger.info("SQLite ready at %s (WAL mode)", DB_PATH)
 
 
 @contextmanager
 def get_connection():
-    """Yield a SQLite connection with row dict access and foreign keys enabled."""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        yield conn
-    finally:
-        conn.close()
+    """Yield a SQLite connection; access is serialized across threads."""
+    with _db_lock:
+        conn = _connect()
+        conn.row_factory = sqlite3.Row
+        _configure_connection(conn)
+        try:
+            yield conn
+        finally:
+            conn.close()
 
 
 def get_all_watchlist_symbols():
