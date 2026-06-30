@@ -26,6 +26,7 @@ _SESSION = get_yf_session()
 
 from utils.features import compute_features
 from utils.predict import predict_stock
+from utils.ticker_search import lookup_quote_type
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +240,10 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
 
     if info is None:
         info = _ticker_info(ticker)
-    quote_type = (info.get("quoteType") or "EQUITY").upper()
+    quote_type = (info.get("quoteType") or "").upper()
+    if not quote_type:
+        quote_type = lookup_quote_type(ticker)
+    quote_type = quote_type or "EQUITY"
     sector = info.get("sector") or info.get("industry")
     p_e = _safe_float(info.get("trailingPE") or info.get("forwardPE"), 1)
     eps = _safe_float(info.get("trailingEps") or info.get("epsTrailingTwelveMonths"), 2)
@@ -365,13 +369,16 @@ def fetch_market_data(tickers, wait=True):
                 ]
                 _refresh_tickers(still_need)
         else:
-            # Only the tickers with NO cached row at all are worth a quick blocking
-            # fetch (e.g. user just added a ticker) — anything merely stale can
-            # wait for the background thread rather than slow down the request.
-            brand_new = [t for t in need_fetch if t not in _cache["rows"]]
-            if brand_new and _fetch_lock.acquire(blocking=False):
+            # Opportunistically refresh stale rows when the fetch lock is free so
+            # page loads and polling see fresh prices without waiting on the bg thread.
+            if need_fetch and _fetch_lock.acquire(blocking=False):
                 try:
-                    _refresh_tickers(brand_new)
+                    still_need = [
+                        t for t in need_fetch
+                        if not (t in _cache["rows"] and _cache["updated_at"].get(t) and (datetime.now() - _cache["updated_at"][t]) < _CACHE_TTL)
+                    ]
+                    if still_need:
+                        _refresh_tickers(still_need)
                 finally:
                     _fetch_lock.release()
 

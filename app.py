@@ -41,6 +41,7 @@ from utils.watchlist_store import (
     load_watchlist,
     load_watchlist_quote_types,
     remove_ticker,
+    upgrade_index_symbols,
 )
 
 app = Flask(__name__)
@@ -414,6 +415,7 @@ def _load_dashboard_context(user_id):
     # refresh thread (utils/refresh.py) is solely responsible for talking to
     # yfinance, so a slow/rate-limited Yahoo response never stalls a request.
     ensure_watchlist_quote_types(user_id)
+    upgrade_index_symbols(user_id)
     quote_types     = load_watchlist_quote_types(user_id)
     market_data   = fetch_market_data(tickers, wait=False)
 

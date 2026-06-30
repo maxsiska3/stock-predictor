@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import yfinance as yf
 
 from utils.yfinance_setup import configure_yfinance, get_yf_session
+from utils.symbols import is_index_symbol, resolve_search_query
 
 configure_yfinance()
 _SESSION = get_yf_session()
@@ -75,6 +76,8 @@ def _parse_quotes(quotes, limit):
 
         symbol = str(symbol).upper()
         if symbol in seen_symbols:
+            continue
+        if is_index_symbol(symbol):
             continue
         seen_symbols.add(symbol)
 
@@ -169,19 +172,25 @@ def _fetch_rows(query, limit):
     """
     Get symbol+name rows — from cache if fresh, otherwise search providers.
     """
-    cached = _get_cached_rows(query)
+    alias = resolve_search_query(query)
+    search_q = alias or query
+
+    cached = _get_cached_rows(search_q)
     if cached is not None:
         return cached[:limit]
 
-    rows = _yfinance_search(query, limit)
+    rows = _yfinance_search(search_q, limit)
     if not rows:
-        rows = _yahoo_http_search(query, limit)
+        rows = _yahoo_http_search(search_q, limit)
 
-    symbol_guess = query.strip().upper()
+    symbol_guess = search_q.strip().upper()
     if not rows and _TICKER_RE.match(symbol_guess):
-        rows = _lookup_exact_symbol(symbol_guess)
+        if is_index_symbol(symbol_guess):
+            rows = []
+        else:
+            rows = _lookup_exact_symbol(symbol_guess)
 
-    _set_cached_rows(query, rows)
+    _set_cached_rows(search_q, rows)
     return rows
 
 
