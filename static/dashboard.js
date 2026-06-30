@@ -28,7 +28,7 @@
 
     if (!addBtn || !modal) return;
 
-    var selected = new Set();
+    var selected = new Map();
     var searchTimer = null;
     var adding = false;
 
@@ -88,7 +88,10 @@
       fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tickers: Array.from(selected) }),
+        body: JSON.stringify({
+          tickers: Array.from(selected.keys()),
+          quote_types: Object.fromEntries(selected),
+        }),
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
@@ -620,13 +623,13 @@
     container.appendChild(p);
   }
 
-  function renderSearchResults(container, results, selectedSet, onToggle) {
+  function renderSearchResults(container, results, selectedMap, onToggle) {
     container.innerHTML = "";
     if (!results.length) { renderPlaceholder(container, "No symbols match your search"); return; }
 
     results.forEach(function (row) {
       var disabled = row.in_watchlist;
-      var isSelected = selectedSet.has(row.symbol);
+      var isSelected = selectedMap.has(row.symbol);
 
       var el = document.createElement("div");
       el.className = "ticker-result-row"
@@ -654,6 +657,13 @@
 
       el.appendChild(check); el.appendChild(sym); el.appendChild(sep); el.appendChild(name);
 
+      if (row.quote_type === "ETF") {
+        var typeTag = document.createElement("span");
+        typeTag.className = "ticker-result-tag";
+        typeTag.textContent = "ETF";
+        el.appendChild(typeTag);
+      }
+
       if (disabled) {
         var tag = document.createElement("span");
         tag.className = "ticker-result-tag";
@@ -663,12 +673,16 @@
 
       function toggle() {
         if (disabled) return;
-        if (selectedSet.has(row.symbol)) {
-          selectedSet.delete(row.symbol);
+        if (selectedMap.has(row.symbol)) {
+          selectedMap.delete(row.symbol);
           el.classList.remove("is-selected");
           check.textContent = "";
+        } else if (selectedMap instanceof Map) {
+          selectedMap.set(row.symbol, row.quote_type || "EQUITY");
+          el.classList.add("is-selected");
+          check.textContent = "✓";
         } else {
-          selectedSet.add(row.symbol);
+          selectedMap.add(row.symbol);
           el.classList.add("is-selected");
           check.textContent = "✓";
         }

@@ -83,7 +83,11 @@ def _parse_quotes(quotes, limit):
             continue
 
         name = quote.get("longname") or quote.get("longName") or quote.get("shortname") or quote.get("shortName") or symbol
-        rows.append({"symbol": symbol, "name": name})
+        rows.append({
+            "symbol": symbol,
+            "name": name,
+            "quote_type": quote_type or "EQUITY",
+        })
 
     return rows
 
@@ -134,7 +138,31 @@ def _lookup_exact_symbol(symbol):
         return []
 
     name = info.get("longName") or info.get("shortName") or resolved
-    return [{"symbol": resolved, "name": name}]
+    return [{"symbol": resolved, "name": name, "quote_type": quote_type or "EQUITY"}]
+
+
+def lookup_quote_type(symbol):
+    """Resolve ETF vs EQUITY via Yahoo search — does not use .info."""
+    sym = str(symbol or "").strip().upper()
+    if not sym:
+        return "EQUITY"
+
+    cached = _get_cached_rows(sym)
+    if cached is not None:
+        for row in cached:
+            if row["symbol"] == sym:
+                return row.get("quote_type") or "EQUITY"
+
+    rows = _yahoo_http_search(sym, limit=8)
+    if not rows:
+        rows = _yfinance_search(sym, limit=8)
+    if rows:
+        _set_cached_rows(sym, rows)
+
+    for row in rows:
+        if row["symbol"] == sym:
+            return row.get("quote_type") or "EQUITY"
+    return "EQUITY"
 
 
 def _fetch_rows(query, limit):

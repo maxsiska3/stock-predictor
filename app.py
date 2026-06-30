@@ -34,7 +34,14 @@ from utils.position_store import PositionError, delete_position, get_all_positio
 from utils.predict import predict_stock
 from utils.refresh import start_background_refresh
 from utils.ticker_search import search_tickers
-from utils.watchlist_store import WatchlistError, add_tickers, load_watchlist, remove_ticker
+from utils.watchlist_store import (
+    WatchlistError,
+    add_tickers,
+    ensure_watchlist_quote_types,
+    load_watchlist,
+    load_watchlist_quote_types,
+    remove_ticker,
+)
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -59,6 +66,17 @@ def get_user_fetch_tickers(user_id):
     fund_tickers = [t for f in user_funds for t in f["tickers"]]
     all_symbols = list(dict.fromkeys(watchlist + fund_tickers + BENCHMARK_TICKERS))
     return all_symbols
+
+
+def _apply_stored_quote_types(watchlist_rows, quote_types):
+    """Use DB quote_type for Stocks/ETFs grouping — survives .info rate limits."""
+    for row in watchlist_rows:
+        sym = row["ticker"]
+        if quote_types.get(sym):
+            row["quote_type"] = quote_types[sym]
+        else:
+            row["quote_type"] = (row.get("quote_type") or "EQUITY").upper()
+    return watchlist_rows
 
 
 def _split_watchlist_rows(market_data_all, user_id):
@@ -395,9 +413,12 @@ def _load_dashboard_context(user_id):
     # wait=False: page loads always read from cache instantly — the background
     # refresh thread (utils/refresh.py) is solely responsible for talking to
     # yfinance, so a slow/rate-limited Yahoo response never stalls a request.
+    ensure_watchlist_quote_types(user_id)
+    quote_types     = load_watchlist_quote_types(user_id)
     market_data   = fetch_market_data(tickers, wait=False)
 
     watchlist_rows, _ = _split_watchlist_rows(market_data, user_id)
+    watchlist_rows    = _apply_stored_quote_types(watchlist_rows, quote_types)
     watchlist_rows    = _enrich_with_positions(watchlist_rows, positions)
     lookup            = {item["ticker"]: item for item in market_data}
     watchlist_rows    = _attach_vs_benchmarks(watchlist_rows, lookup)
@@ -516,8 +537,9 @@ def api_watchlist_get():
 def api_watchlist_add():
     body = request.get_json(silent=True) or {}
     tickers = body.get("tickers")
+    quote_types = body.get("quote_types")
     try:
-        result = add_tickers(current_user.id, tickers)
+        result = add_tickers(current_user.id, tickers, quote_types=quote_types)
         return jsonify(result)
     except WatchlistError as e:
         return jsonify({"error": e.message}), e.status_code
