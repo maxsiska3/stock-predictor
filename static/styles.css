@@ -1,861 +1,201 @@
-*{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0a0f1e;
+  --panel:#111827;
+  --line:#1e2535;
+  --text:#e8eaf0;
+  --muted:#8a94a6;
+  --accent:#c9a84c;
+  --accent-soft:#1e1a0e;
+  --up:#34d17f;
+  --up-bg:#0e2318;
+  --down:#f26173;
+  --down-bg:#271114;
+}
+
 html,body{min-height:100%}
-body.modal-open{overflow:hidden}
 body{
   background:var(--bg);
   color:var(--text);
   font-family:'Archivo',sans-serif;
-  font-size:13px;
+  font-size:14px;
+  line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
-#app-root{
-  --table-col-gap:10px;
-  /* Shared 22-column grid — watchlist & funds use identical tracks so columns align. */
-  --dashboard-cols:140px 75px 75px 75px 75px 95px 75px 75px 65px 65px 80px 75px 75px 95px 75px 100px 65px 80px 90px 90px 75px 54px;
-  --dashboard-panel-body-min:300px;
-  --sub-bg:var(--panel);
-  --muted2:var(--muted);
-  --soft:var(--hover);
-  --logo-fg:#fff;
+.app{
+  max-width:880px;
+  margin:0 auto;
+  padding:28px 20px 40px;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
 }
 
-#app-root[data-theme="light"]{
-  --bg:#f4f3ef;--panel:#ffffff;--accent:#c9a84c;--accent-soft:#fef8ec;--accent-line:#f0d99a;
-  --text:#1a1c20;--text2:#44484f;--muted:#8a9099;--muted2:#6b7079;
-  --line:#e5e5e0;--line2:#eeeeea;--line3:#f3f3ef;
-  --hover:#fdf9f0;--chart-bg:#f6f6f3;--sub-bg:#fafafa;--soft:#fdfaf4;
-  --scroll:#d4d4cf;
-  --up:#16a34a;--down:#dc2626;--up-bg:#e9f7ee;--down-bg:#fdeaea;
-  --logo-fg:#0a0f1e;
-}
-
-#app-root[data-theme="dark"]{
-  --bg:#0f1115;--panel:#161a20;--accent:#c9a84c;--accent-soft:#1e1a0e;--accent-line:#3a2e10;
-  --text:#e7e9ec;--text2:#b3b9c2;--muted:#7b828c;--muted2:#9aa1aa;
-  --line:#262c34;--line2:#202630;--line3:#1b212a;
-  --hover:#1d1a11;--chart-bg:#11161d;--sub-bg:#12161d;--soft:#161a20;
-  --scroll:#2c333d;
-  --up:#34d17f;--down:#f26173;--up-bg:#11271e;--down-bg:#2b1518;
-  --logo-fg:#0a0f1e;
-}
-
-#app-root[data-theme="kouros"]{
-  --bg:#0a0f1e;--panel:#111827;--accent:#c9a84c;--accent-soft:#1e1a0e;--accent-line:#3a2e10;
-  --text:#e8eaf0;--text2:#b0b8c8;--muted:#6b7585;--muted2:#8a94a6;
-  --line:#1e2535;--line2:#192030;--line3:#151c2b;
-  --hover:#141b2a;--chart-bg:#0d1322;--sub-bg:#0f1524;--soft:#111827;
-  --scroll:#2a3347;
-  --up:#34d17f;--down:#f26173;--up-bg:#0e2318;--down-bg:#271114;
-  --logo-fg:#0a0f1e;
-}
-
-.app-shell{
-  min-height:100vh;display:flex;flex-direction:column;
-  background:var(--bg);color:var(--text);
-}
-
-/* ─── Header ──────────────────────────────────────────────── */
-.app-header{
-  flex:none;min-height:64px;
-  position:sticky;top:0;z-index:200;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;
-  background:var(--panel);
+.header{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  padding-bottom:8px;
   border-bottom:2px solid var(--accent);
 }
-/* Subtle lift on light theme */
-#app-root[data-theme="light"] .app-header{
-  box-shadow:0 1px 12px rgba(0,0,0,.05);
-}
 
-/* ─── Panels ──────────────────────────────────────────────── */
-.panel-card{
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{display:block}
+.brand-name{
+  font-family:'Marcellus SC',serif;
+  font-size:22px;
+  font-weight:400;
+  letter-spacing:.1em;
+  line-height:1.1;
+}
+.brand-tag{
+  font-size:11px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.header-note{font-size:12px;color:var(--muted)}
+
+.panel{
   background:var(--panel);
   border:1px solid var(--line);
   border-radius:8px;
-}
-#app-root[data-theme="light"] .panel-card{
-  box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.03);
+  padding:16px 18px;
 }
 
-/* Section header row — signature 3px left accent strip */
-.panel-header-row{
-  flex:none;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;
-  border-bottom:1px solid var(--line2);
-  border-left:3px solid var(--accent);
+.controls{display:flex;flex-direction:column;gap:14px}
+.field-label{
+  display:block;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:6px;
 }
-
-.section-title{
-  font-family:'Archivo',sans-serif;
-  font-size:15px;font-weight:700;letter-spacing:-.02em;
-  color:var(--text);
-}
-.section-count{
-  font-size:12px;color:var(--muted);
-}
-
-/* Market open/closed pill — makes it explicit when prices shown are the last
-   close being re-confirmed, not a live intraday move. */
-.market-status-pill{
-  display:inline-flex;align-items:center;gap:5px;
-  font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
-  color:var(--muted2);
-  padding:3px 8px 3px 6px;border-radius:20px;
-  background:var(--sub-bg);border:1px solid var(--line2);
-}
-.market-status-dot{
-  width:6px;height:6px;border-radius:50%;
-  background:var(--muted);flex:none;
-}
-.market-status-pill[data-status="open"]{color:var(--up)}
-.market-status-pill[data-status="open"] .market-status-dot{background:var(--up)}
-.market-status-pill[data-status="closed"] .market-status-dot,
-.market-status-pill[data-status="weekend"] .market-status-dot{background:var(--down)}
-
-.app-body{
-  flex:1;display:flex;gap:14px;padding:14px;
-  align-items:flex-start;
-}
-
-/* ─── Dashboard layout (page scroll, equal panels) ───────────
-   Each panel's header row stays normal width (never needs its own scroll —
-   the "+ Add Ticker"/"+ Add Fund" button is always visible). Only the table
-   body (which is wider than the viewport due to many fixed-width columns)
-   scrolls horizontally, scoped to .dashboard-table-wrap. */
-.dashboard-main{
-  flex:1;min-width:0;
-  padding-bottom:4px;
-}
-.dashboard-hscroll-track > .dashboard-panel + .dashboard-panel{
-  margin-top:14px;
-}
-.dashboard-panel{
-  display:flex;flex-direction:column;
-  width:100%;min-width:0;
-}
-.dashboard-panel--watchlist .dashboard-table-wrap,
-.dashboard-panel--funds .dashboard-table-wrap{
-  display:flex;flex-direction:column;
-  overflow-x:auto;
-}
-.dashboard-panel--watchlist .dashboard-table-inner,
-.dashboard-panel--funds .dashboard-table-inner{
-  display:flex;flex-direction:column;
-  min-width:max-content;
-  width:100%;
-}
-.dashboard-panel--watchlist .dashboard-table-body,
-.dashboard-panel--funds .dashboard-table-body{
-  min-height:var(--dashboard-panel-body-min);
-  min-width:max-content;
-}
-.dashboard-table-inner{
-  min-width:max-content;
-}
-.dashboard-sidebar{
-  flex:none;width:288px;
-  display:flex;flex-direction:column;gap:14px;
-  position:sticky;top:78px;
-  align-self:flex-start;
-  max-height:calc(100vh - 92px);
-  overflow-y:auto;
-}
-.dashboard-sidebar .panel-card{
-  flex:none;
-}
-.dashboard-sidebar .dashboard-panel--sidebar{
-  min-height:0;
-}
-
-@media(max-width:1100px){
-  .app-body{flex-direction:column}
-  .dashboard-sidebar{
-    width:100%;position:static;max-height:none;overflow:visible;
-  }
-}
-
-.app-footer{
-  flex:none;border-top:1px solid var(--line);
-  padding:18px 16px 16px;
-  font-family:'Archivo',sans-serif;font-size:11px;
-  color:var(--muted);background:var(--panel);
-}
-.app-footer-inner{
-  max-width:960px;margin:0 auto;
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-}
-.yahoo-attribution{display:inline-flex;line-height:0}
-.yahoo-logo{height:19px;width:auto;display:block}
-[data-theme="light"] .yahoo-logo--dark{display:none}
-[data-theme="dark"] .yahoo-logo--light,
-[data-theme="kouros"] .yahoo-logo--light{display:none}
-.app-footer-disclaimer{
-  margin:0;max-width:720px;text-align:center;
-  font-size:11px;line-height:1.55;letter-spacing:.02em;
-  text-transform:none;color:var(--muted2);
-}
-.app-footer-disclaimer a{color:var(--accent);text-decoration:none}
-.app-footer-disclaimer a:hover{text-decoration:underline}
-.app-footer-copy{
-  margin:0;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
-}
-.symbol-link{
-  color:inherit;text-decoration:none;border-bottom:1px solid transparent;
-  transition:border-color .15s,color .15s;
-}
-.symbol-link:hover{color:var(--accent);border-bottom-color:var(--accent-soft)}
-.legal-page .legal-main{
-  max-width:720px;margin:0 auto;padding:32px 20px 24px;
-}
-.legal-back{font-size:13px;margin:0 0 20px}
-.legal-back a{color:var(--accent);text-decoration:none}
-.legal-back a:hover{text-decoration:underline}
-.legal-title{
-  font-family:'Marcellus SC',serif;font-size:28px;font-weight:400;
-  letter-spacing:.06em;margin:0 0 8px;color:var(--text);
-}
-.legal-updated{font-size:12px;color:var(--muted);margin:0 0 28px}
-.legal-section{margin-bottom:24px}
-.legal-section h2{
-  font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px;color:var(--text2);
-}
-.legal-section p{
-  margin:0 0 12px;font-size:14px;line-height:1.65;color:var(--text2);
-}
-.legal-section a{color:var(--accent);text-decoration:none}
-.legal-section a:hover{text-decoration:underline}
-
-.app-name{
-  font-family:'Marcellus SC',serif;
-  font-size:18px;font-weight:400;
-  letter-spacing:.12em;color:var(--text);line-height:1.2;
-}
-.app-tagline{
-  font-family:'Archivo',sans-serif;
-  font-size:10px;letter-spacing:.3em;text-transform:uppercase;
-  color:var(--muted);line-height:1.2;
-}
-
-.k-badge{
-  width:40px;height:40px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--accent);border-radius:8px;
-  transition:background .2s ease;
-}
-#app-root[data-theme="kouros"] .k-badge{background:var(--panel)}
-.k-badge-svg{display:block;width:auto;height:30px}
-.logo-fill{fill:#fff}
-#app-root[data-theme="kouros"] .logo-fill{fill:#c9a84c}
-
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:5px}
-::-webkit-scrollbar-track{background:transparent}
-.row:hover{background:var(--hover)}
-
-.watchlist-grid,.funds-grid{
-  display:grid;align-items:center;
-  column-gap:var(--table-col-gap);
-  grid-template-columns:var(--dashboard-cols);
-}
-.watchlist-grid>*,.funds-grid>*{
-  display:flex;justify-content:center;align-items:center;
-  width:100%;min-width:0;
-  text-align:center;
-}
-.watchlist-grid>:first-child,.funds-grid>:first-child{
-  justify-content:flex-start;text-align:left;padding-right:4px;
-}
-.col-text{
-  min-width:0;max-width:100%;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.table-header{
-  flex:none;padding:7px 12px 7px 10px;
-  border-bottom:1px solid var(--line2);
-  font-size:10.5px;font-weight:600;letter-spacing:.03em;
-  color:var(--muted);text-transform:uppercase;
-  align-items:center;
-}
-.table-row{
-  padding:9px 12px 9px 10px;border-bottom:1px solid var(--line3);cursor:pointer;
-  align-items:center;min-height:46px;
-}
-.col-ident{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* Uniform data typography — watchlist & funds share these rules */
-.table-row > *{
-  font-family:'Archivo',sans-serif;
-  font-size:12.5px;
-  font-weight:400;
-  color:var(--text);
-  line-height:1.3;
-}
-.table-row .col-ident{font-size:13px;font-weight:700}
-.table-row .cell-pct{font-weight:600}
-.table-row .cell-up{color:var(--up)}
-.table-row .cell-down{color:var(--down)}
-.table-row .cell-muted{color:var(--muted2)}
-.table-row .na{color:var(--muted)}
-.table-row .field-note{font-size:12.5px;color:var(--muted);letter-spacing:.01em}
-
-.day-chart{
-  width:100%;height:28px;align-self:center;
-  background:var(--chart-bg);
-  border:1px solid var(--line2);border-radius:2px;
-}
-.pred-cell{
-  display:flex;justify-content:center;align-items:center;
-  width:100%;min-width:0;overflow:hidden;
-}
-.pred-badge{
-  display:inline-flex;align-items:center;justify-content:center;
-  gap:3px;width:80px;min-width:80px;max-width:80px;height:22px;
-  padding:0 6px;box-sizing:border-box;
-  font-size:11px;font-weight:600;line-height:1;
-  white-space:nowrap;overflow:hidden;
-  border-radius:2px;flex-shrink:0;
-}
-.pred-arrow{flex:0 0 10px;text-align:center}
-.pred-pct{flex:1 1 auto;text-align:right}
-
-.side-row{
-  display:flex;align-items:center;gap:10px;
-  padding:6px 14px;border-bottom:1px solid var(--line3);cursor:pointer;
-}
-.side-row:hover{background:var(--hover)}
-
-.icon-btn{
-  display:flex;align-items:center;justify-content:center;
-  width:32px;height:32px;padding:0;border:none;border-radius:6px;
-  background:transparent;color:var(--muted);font-size:16px;
-  font-family:'Archivo',sans-serif;cursor:pointer;
-  user-select:none;-webkit-user-select:none;
-  transition:background .15s ease,color .15s ease;
-}
-.icon-btn:hover{background:var(--hover);color:var(--text2)}
-
-.profile-btn{
-  display:flex;align-items:center;gap:5px;padding:4px 8px;
-  border:none;border-radius:6px;background:transparent;color:var(--text2);
-  font-size:13px;font-family:'Archivo',sans-serif;cursor:pointer;
-  transition:background .15s ease,color .15s ease;
-}
-.profile-btn:hover{background:var(--hover);color:var(--text2)}
-.profile-avatar{
-  width:26px;height:26px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--accent);font-weight:700;font-size:12px;color:var(--logo-fg);
-}
-/* --logo-fg is #0a0f1e for all three themes now — no override needed */
-
-.theme-wrap{position:relative}
-.theme-menu{
-  display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;
-  padding:8px;background:var(--panel);border:1px solid var(--line);
-  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:100;
-}
-.theme-menu.is-open{display:block}
-.theme-option{
-  display:flex;align-items:center;gap:10px;width:100%;
-  padding:8px 12px;border:none;border-radius:6px;
-  background:transparent;color:var(--text2);
-  font-family:'Archivo',sans-serif;font-size:13px;text-align:left;cursor:pointer;
-}
-.theme-option:hover{background:var(--hover)}
-.theme-swatch{
-  width:12px;height:12px;border-radius:50%;flex-shrink:0;
+.field-row{display:flex;gap:8px}
+.field-row input{
+  flex:1;
+  min-width:0;
+  padding:10px 12px;
   border:1px solid var(--line);
-}
-.theme-swatch-kouros{box-shadow:0 0 0 2px #c9a84c;border-color:#c9a84c}
-.theme-option-label{flex:1}
-.theme-check{
-  width:14px;text-align:center;font-size:12px;color:var(--accent);
-  visibility:hidden;
-}
-.theme-option.is-active .theme-check{visibility:visible}
-.theme-option.is-active .theme-option-label{color:var(--text);font-weight:600}
-
-.btn-accent{
-  padding:6px 12px;background:var(--accent);border:1px solid var(--accent);
-  border-radius:2px;color:var(--logo-fg);
-  font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;
-}
-/* Gold accent on all three themes — always use dark text on the button */
-
-/* Legacy predict page */
-.page-simple{
-  min-height:100vh;display:flex;flex-direction:column;
-  background:var(--bg);color:var(--text);
-  font-family:'Archivo',sans-serif;font-size:13px;
-}
-.page-simple main{flex:1;padding:40px 24px;max-width:480px;margin:0 auto;width:100%}
-.page-simple h1{
-  font-family:'Marcellus SC',serif;font-size:24px;
-  font-weight:400;letter-spacing:.12em;margin-bottom:4px;
-}
-.page-simple .app-tagline{margin-bottom:24px}
-.page-simple input,.page-simple button{font-family:'Archivo',sans-serif;font-size:14px}
-.page-simple input{
-  padding:8px 10px;border:1px solid var(--line);border-radius:3px;
-  background:var(--panel);color:var(--text);width:100%;max-width:280px;
-}
-.page-simple button{
-  padding:8px 14px;border:none;border-radius:3px;
-  background:var(--accent);color:var(--logo-fg);font-weight:600;cursor:pointer;margin-top:10px;
-}
-/* page-simple button inherits --logo-fg (#0a0f1e) from theme — dark text on gold */
-
-/* ─── Dynamic watchlist modal ─────────────────────────────── */
-
-/* Full-screen backdrop — darkens the dashboard behind the panel */
-.modal-overlay{
-  position:absolute;inset:0;z-index:200;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.55);
-  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
-}
-.modal-overlay[hidden]{display:none}
-
-/* Floating panel — picks up all theme variables from #app-root */
-.modal-panel{
-  width:min(440px,92vw);max-height:min(520px,88vh);
-  display:flex;flex-direction:column;
-  background:var(--panel);border:1px solid var(--line);
-  border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,.35);
-  overflow:hidden;
-  font-family:'Archivo',sans-serif;
-}
-
-/* Header row: title + close × */
-.modal-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 16px 12px;border-bottom:1px solid var(--line2);flex:none;
-}
-.modal-title{
-  font-family:'Archivo',sans-serif;
-  font-size:14px;font-weight:700;letter-spacing:-.01em;
+  border-radius:6px;
+  background:var(--bg);
   color:var(--text);
+  font:inherit;
 }
-.modal-close-btn{
-  width:26px;height:26px;border:none;border-radius:5px;
-  background:transparent;color:var(--muted);font-size:13px;
-  font-family:'Archivo',sans-serif;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:background .15s,color .15s;
-}
-.modal-close-btn:hover{background:var(--hover);color:var(--text)}
-
-/* Search input row */
-.modal-search-wrap{padding:10px 12px 0;flex:none}
-.modal-search-wrap input{
-  width:100%;padding:8px 10px;
-  font-family:'Archivo',sans-serif;font-size:13px;
-  border:1px solid var(--line);border-radius:4px;
-  background:var(--bg);color:var(--text);
-  outline:none;transition:border-color .15s;
-  box-sizing:border-box;
-}
-.modal-search-wrap input:focus{border-color:var(--accent)}
-.modal-search-wrap input::placeholder{color:var(--muted)}
-
-.modal-hint{
-  padding:6px 12px 4px;font-size:10.5px;
-  color:var(--muted);letter-spacing:.02em;flex:none;
-}
-.fund-selected-chips{
-  display:flex;flex-wrap:wrap;gap:6px;
-  padding:8px 14px 0;flex:none;
-}
-.fund-ticker-chip{
-  display:inline-flex;align-items:center;
-  padding:4px 10px;border-radius:999px;
-  border:1px solid var(--line2);background:var(--sub-bg);
-  color:var(--text);font-size:11.5px;font-weight:600;
-  cursor:pointer;transition:background .15s,border-color .15s,color .15s;
-}
-.fund-ticker-chip:hover{
-  color:var(--down);border-color:var(--down-bg);background:var(--down-bg);
-}
-
-/* Scrollable results list */
-.ticker-search-results{
-  flex:1;overflow-y:auto;min-height:100px;
-  border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);
-  margin-top:8px;
-}
-.ticker-search-empty{
-  padding:24px 16px;font-size:12px;color:var(--muted);text-align:center;
-}
-
-/* Each result row — clicking anywhere selects it */
-.ticker-result-row{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 14px;border-bottom:1px solid var(--line3);
-  cursor:pointer;user-select:none;transition:background .1s;
-}
-.ticker-result-row:last-child{border-bottom:none}
-.ticker-result-row:hover:not(.is-disabled){background:var(--hover)}
-
-/* Selected state — accent tint + left bar */
-.ticker-result-row.is-selected{
-  background:var(--accent-soft);
-  border-left:2px solid var(--accent);
-  padding-left:12px;
-}
-.ticker-result-row.is-selected:hover{background:var(--accent-soft)}
-
-/* Disabled — symbol already on watchlist */
-.ticker-result-row.is-disabled{opacity:.5;cursor:default}
-
-/* Hidden native checkbox (we use row click + visual selected state instead) */
-.ticker-result-row input[type="checkbox"]{display:none}
-
-/* Checkmark on selected rows */
-.ticker-result-check{
-  width:16px;height:16px;border-radius:3px;border:1.5px solid var(--line);
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;font-size:10px;color:transparent;
-  background:transparent;transition:background .1s,border-color .1s;
-}
-.ticker-result-row.is-selected .ticker-result-check{
-  background:var(--accent);border-color:var(--accent);color:#fff;
-}
-
-.ticker-result-symbol{
-  font-family:'Archivo',sans-serif;
-  font-weight:700;font-size:13px;min-width:52px;color:var(--text);
-}
-.ticker-result-sep{color:var(--line);font-size:13px;flex:none}
-.ticker-result-name{
-  font-family:'Archivo',sans-serif;
-  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:12.5px;color:var(--text2);
-}
-.ticker-result-tag{
-  font-size:10px;color:var(--muted);text-transform:uppercase;
-  letter-spacing:.05em;flex:none;
-}
-
-/* Footer: count + buttons */
-.modal-footer{
-  display:flex;align-items:center;gap:8px;
-  padding:10px 12px;flex:none;
-}
-.modal-selected-count{margin-right:auto;font-size:12px;color:var(--muted)}
-.modal-message{
-  padding:0 12px 4px;font-size:11.5px;color:var(--down);
-  min-height:1.4em;flex:none;
-}
-.btn-cancel{
-  padding:6px 12px;border:1px solid var(--line);border-radius:2px;
-  background:transparent;color:var(--text2);
-  font-family:'Archivo',sans-serif;font-size:12.5px;cursor:pointer;
-  transition:background .15s;
-}
-.btn-cancel:hover{background:var(--hover)}
-
-/* ─── Watchlist table helpers ─────────────────────────────── */
-/* Muted label for fields that don't apply (e.g. ETF expense ratio instead of EPS) */
-.field-note{font-size:12.5px;color:var(--muted);letter-spacing:.01em}
-
-/* Trailing row action — remove ticker / future fund actions */
-.col-action{
-  justify-content:center!important;padding:0 4px;
-  display:flex!important;gap:2px;flex-wrap:nowrap;
-}
-.row-action-btn{
-  display:none;width:22px;height:22px;padding:0;
-  border:none;border-radius:4px;background:transparent;
-  color:var(--muted);font-size:14px;line-height:1;
-  cursor:pointer;align-items:center;justify-content:center;
-  transition:color .15s,background .15s;
-}
-.row-action-btn--edit{font-size:13px}
-.row-action-btn:hover{color:var(--down);background:var(--down-bg)}
-.row-action-btn--edit:hover{color:var(--accent);background:var(--accent-soft)}
-.table-row:hover .row-action-btn{display:inline-flex}
-
-.watchlist-empty{
-  padding:36px 16px;text-align:center;color:var(--muted);font-size:13px;
-  display:flex;align-items:center;justify-content:center;
-  min-height:calc(var(--dashboard-panel-body-min) - 48px);
-}
-.symbol-cell{display:flex;align-items:center;justify-content:flex-start}
-
-/* Watchlist section divider — Stocks / ETFs */
-.watchlist-section-header{
-  padding:5px 10px;
-  background:var(--sub-bg);
-  border-bottom:1px solid var(--line2);
-  border-top:1px solid var(--line2);
-  font-size:10.5px;font-weight:700;letter-spacing:.05em;
-  color:var(--muted2);text-transform:uppercase;
-}
-.watchlist-section-header span{
-  display:flex;align-items:center;gap:6px;
-}
-.section-header-count{
-  font-weight:400;font-size:10px;color:var(--muted);
-  letter-spacing:.02em;text-transform:none;
-}
-
-/* Sidebar subtitle "from your watchlist" */
-.section-subtitle{
-  display:block;font-size:10px;font-weight:400;
-  color:var(--muted);letter-spacing:.02em;margin-top:1px;
-}
-
-/* ─── Auth pages — split layout ───────────────────────────── */
-
-/* Full-viewport two-column shell */
-.auth-split-root{
-  min-height:100vh;display:flex;flex-direction:row;
-  background:var(--bg);color:var(--text);
-  font-family:'Archivo',sans-serif;font-size:13px;
-}
-
-/* LEFT — always Kouros brand panel, fixed width */
-.auth-brand-panel{
-  flex:none;width:min(420px,45vw);
-  background:#0a0f1e;
-  display:flex;align-items:center;justify-content:center;
-  padding:48px 40px;
-  position:relative;overflow:hidden;
-}
-/* Subtle texture: a faint radial highlight */
-.auth-brand-panel::before{
-  content:'';position:absolute;
-  top:-120px;left:-80px;
-  width:500px;height:500px;
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(201,168,76,.09) 0%,transparent 70%);
-  pointer-events:none;
-}
-.auth-brand-inner{
-  display:flex;flex-direction:column;gap:36px;
-  position:relative;z-index:1;
-  max-width:300px;
-}
-.auth-brand-logo{display:flex;align-items:center;gap:14px}
-.k-badge--auth{
-  width:48px;height:48px;
-  background:#111827;border-radius:8px;
-}
-.k-badge--auth .k-badge-svg{height:36px}
-.auth-brand-name{
-  display:block;
-  font-family:'Marcellus SC',serif;font-size:22px;
-  letter-spacing:.12em;color:#e8eaf0;line-height:1.2;
-}
-.auth-brand-tag{
-  display:block;
-  font-family:'Archivo',sans-serif;font-size:10px;
-  letter-spacing:.3em;text-transform:uppercase;
-  color:#6b7585;margin-top:2px;
-}
-.auth-brand-quote{
-  font-family:'Marcellus SC',serif;font-size:18px;font-weight:400;
-  line-height:1.55;color:#c9a84c;letter-spacing:.01em;
-  border-left:3px solid #c9a84c;padding-left:16px;
-}
-.auth-feature-list{
-  list-style:none;display:flex;flex-direction:column;gap:10px;
-}
-.auth-feature-list li{
-  font-family:'Archivo',sans-serif;font-size:12.5px;
-  color:#b0b8c8;padding-left:16px;position:relative;
-}
-.auth-feature-list li::before{
-  content:'';position:absolute;left:0;top:7px;
-  width:5px;height:5px;border-radius:50%;
-  background:#c9a84c;
-}
-
-/* RIGHT — form panel */
-.auth-form-panel{
-  flex:1;display:flex;align-items:center;justify-content:center;
-  padding:48px 40px;
-}
-.auth-card{
-  width:min(380px,100%);
-}
-.auth-title{
-  font-family:'Archivo',sans-serif;font-size:22px;font-weight:700;
-  color:var(--text);margin-bottom:4px;letter-spacing:-.02em;
-}
-.auth-subtitle{font-size:13px;color:var(--muted);margin-bottom:24px}
-.auth-form{display:flex;flex-direction:column;gap:6px}
-.auth-label{font-size:12px;font-weight:600;color:var(--text2);margin-top:10px}
-.auth-input{
-  width:100%;padding:10px 12px;font-family:'Archivo',sans-serif;font-size:14px;
-  border:1px solid var(--line);border-radius:6px;
-  background:var(--panel);color:var(--text);box-sizing:border-box;
-  transition:border-color .15s,box-shadow .15s;
-}
-.auth-input:focus{
-  outline:none;border-color:var(--accent);
+.field-row input:focus{
+  outline:none;
+  border-color:var(--accent);
   box-shadow:0 0 0 3px var(--accent-soft);
 }
-.auth-hint{font-size:11px;color:var(--muted);margin-top:-2px}
-.auth-submit{
-  width:100%;margin-top:16px;padding:11px 12px;
-  font-size:14px;border-radius:6px;
-}
-.auth-footer-text{
-  margin-top:20px;font-size:12.5px;color:var(--muted);text-align:center;
-}
-.auth-footer-text a{color:var(--accent);text-decoration:none}
-.auth-footer-text a:hover{text-decoration:underline}
-.auth-flash{
-  padding:9px 12px;border-radius:6px;font-size:12.5px;margin-bottom:12px;
-}
-.auth-flash-error{background:var(--down-bg);color:var(--down)}
-.auth-flash-info{background:var(--accent-soft);color:var(--text2)}
+.control-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 
-/* Responsive: stack vertically on small screens */
-@media(max-width:700px){
-  .auth-split-root{flex-direction:column}
-  .auth-brand-panel{
-    width:100%;padding:32px 24px;
-    min-height:auto;
-  }
-  .auth-brand-quote{font-size:16px}
-  .auth-form-panel{padding:32px 24px}
-}
-
-/* Legacy fallback for old page-simple pages */
-.auth-main{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:40px 24px;gap:28px;
-}
-.auth-brand{display:flex;align-items:center;gap:12px}
-
-/* ─── Profile menu ────────────────────────────────────────── */
-.profile-wrap{position:relative}
-.profile-menu{
-  position:absolute;top:calc(100% + 8px);right:0;min-width:180px;
-  padding:8px;background:var(--panel);border:1px solid var(--line);
-  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:100;
-}
-.profile-menu[hidden]{display:none}
-.profile-menu-email{
-  display:block;padding:6px 10px;font-size:11px;color:var(--muted);
-  border-bottom:1px solid var(--line2);margin-bottom:4px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.profile-menu-link{
-  display:block;padding:8px 10px;border-radius:6px;
-  font-family:'Archivo',sans-serif;font-size:13px;color:var(--text2);
-  text-decoration:none;
-}
-.profile-menu-link:hover{background:var(--hover);color:var(--text)}
-
-/* ─── Sector chart (sidebar) ──────────────────────────────── */
-.sector-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
-.sector-row:last-child{margin-bottom:0}
-.sector-label{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
-.sector-name{
-  font-family:'Archivo',sans-serif;font-size:11.5px;font-weight:500;
-  color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.sector-pct{font-size:11.5px;font-weight:700;color:var(--text);flex-shrink:0}
-.sector-bar-track{
-  height:6px;border-radius:3px;background:var(--line2);overflow:hidden;
-}
-.sector-bar-fill{
-  height:100%;border-radius:3px;
-  background:var(--accent);
-  transition:width .3s ease;
-}
-
-/* ─── Position columns — clickable edit cells ─────────────── */
-.pos-cell{
+.btn{
+  padding:10px 16px;
+  border-radius:6px;
+  border:1px solid transparent;
+  font:inherit;
+  font-weight:600;
   cursor:pointer;
-  transition:background .12s,outline .12s;
-  border-radius:3px;
-  position:relative;
+  transition:opacity .15s;
 }
-.pos-cell:hover{
-  background:var(--accent-soft);
-  outline:1px solid var(--accent-line);
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#0a0f1e}
+.btn-primary{background:transparent;border-color:var(--line);color:var(--text)}
+.btn-primary:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+
+.status{font-size:12px;color:var(--muted)}
+
+.summary{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
 }
-/* Pencil icon appears on row hover, anchored to the shares cell */
-.pos-shares::after{
-  content:'✎';
-  margin-left:4px;
-  font-size:9px;
-  color:var(--accent);
-  opacity:0;
-  transition:opacity .12s;
-  pointer-events:none;
+.stat{text-align:center}
+.stat-value{
+  display:block;
+  font-size:28px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
 }
-.table-row:hover .pos-shares::after{opacity:1}
-.pos-add-hint{
-  font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.02em;
+.stat-up{color:var(--up)}
+.stat-down{color:var(--down)}
+.stat-label{
+  display:block;
+  margin-top:4px;
+  font-size:11px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--muted);
 }
 
-/* ─── Position edit modal ─────────────────────────────────── */
-.modal-panel-sm{
-  width:min(340px,92vw);max-height:min(480px,88vh);
+.table-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
 }
-.pos-field-group{display:flex;flex-direction:column;gap:5px}
-.pos-field-label{
-  font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;
-  color:var(--text2);
+.table-head h2{
+  font-family:'Marcellus SC',serif;
+  font-size:16px;
+  font-weight:400;
+  letter-spacing:.08em;
 }
-.pos-field-input{
-  width:100%;padding:9px 11px;
-  font-family:'Archivo',sans-serif;font-size:13px;
-  border:1px solid var(--line);border-radius:5px;
-  background:var(--bg);color:var(--text);
-  box-sizing:border-box;transition:border-color .15s,box-shadow .15s;
-}
-.pos-field-input:focus{
-  outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft);
-}
-.pos-field-input::placeholder{color:var(--muted)}
+.table-meta{font-size:12px;color:var(--muted)}
 
-/* ─── Fund table: expand, benchmark column, child rows ───── */
-.vs-index-header{
-  display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
-  overflow:visible;max-width:100%;
+.table-wrap{overflow-x:auto}
+.pred-table{width:100%;border-collapse:collapse}
+.pred-table th,
+.pred-table td{
+  padding:10px 12px;
+  text-align:left;
+  border-bottom:1px solid var(--line);
 }
-.vs-index-label{
-  font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;
-  letter-spacing:.04em;flex-shrink:0;
+.pred-table th{
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--muted);
 }
-.benchmark-select{
-  font-family:'Archivo',sans-serif;font-size:10.5px;width:100%;min-width:0;
-  padding:2px 4px;border:1px solid var(--line);border-radius:4px;
-  background:var(--bg);color:var(--text2);cursor:pointer;
-  text-transform:none;letter-spacing:normal;
+.pred-table td{font-variant-numeric:tabular-nums}
+.pred-table tbody tr:last-child td{border-bottom:none}
+.pred-table tbody tr:hover{background:rgba(255,255,255,.02)}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
 }
-.table-header .benchmark-select{font-size:10px;padding:2px 3px}
-.table-header .vs-index-header{text-transform:none}
-.vs-index-cell{font-weight:600}
-.fund-name-cell{display:flex;align-items:center;gap:6px;min-width:0}
-.fund-name-text{
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  min-width:0;flex:1;
+.badge-up{background:var(--up-bg);color:var(--up)}
+.badge-down{background:var(--down-bg);color:var(--down)}
+.badge-err{background:#2a1a1a;color:#f5a5ad}
+
+.empty,.error-cell{
+  text-align:center;
+  color:var(--muted);
+  padding:24px 12px !important;
 }
-.fund-expand-btn{
-  width:20px;height:20px;padding:0;border:none;border-radius:4px;
-  background:transparent;color:var(--muted);font-size:11px;line-height:1;
-  cursor:pointer;flex-shrink:0;
+
+.footer{
+  text-align:center;
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.6;
 }
-.fund-expand-btn:hover{background:var(--hover);color:var(--text)}
-.fund-holdings-block{
-  border-bottom:2px solid var(--line2);
-  padding-bottom:6px;margin-bottom:2px;
-}
-.fund-holding-row{background:var(--sub-bg)}
-.fund-holding-row:hover{background:var(--hover)}
-.fund-holding-indent{
-  display:inline-block;width:14px;flex-shrink:0;
+
+@media(max-width:560px){
+  .summary{grid-template-columns:1fr}
+  .field-row{flex-direction:column}
 }
