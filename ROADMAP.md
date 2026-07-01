@@ -13,16 +13,18 @@ Kouros is a multi-user hosted dashboard with per-account data in SQLite.
 | Area | What's live |
 |------|-------------|
 | **Auth** | Register, login, logout (Flask-Login + bcrypt). Split login/register UI with Kouros branding. |
-| **Data** | SQLite (`kouros.db`): users, watchlist, positions, user_funds, fund_holdings (with shares/avg_cost). |
-| **Watchlist** | Live search add/remove modal, Stocks / ETFs sections, full data table + ML prediction badge. |
-| **Positions** | Per-ticker shares, avg cost, mkt value, gain/loss, return % — click Shares to edit. |
-| **Funds** | User-created funds via search modal; expandable rows with per-holding watchlist columns; fund-level position aggregates; value-weighted Chg % / $ Change. |
+| **Data** | SQLite (`kouros.db`): users, watchlist (with `quote_type`), positions, user_funds, fund_holdings (with shares/avg_cost). |
+| **Watchlist** | Live search add/remove modal (indexes like `^GSPC`/`^DJI` included), Stocks / ETFs / **Indexes** sections, full data table + ML prediction badge. Classification persisted per ticker so it survives Yahoo rate limits and doesn't require `.info`. |
+| **Positions** | Per-ticker shares, avg cost, mkt value, gain/loss, return % — click Shares/Avg Cost (hover shows an edit hint) to edit. |
+| **Funds** | User-created funds via search modal; **edit (✎) and delete** per fund; expandable rows with per-holding watchlist columns; fund-level position aggregates; value-weighted Chg % / $ Change. |
 | **vs Index** | Shared **vs** column on watchlist + funds (S&P / Dow / NASDAQ header dropdown; synced via `localStorage`). |
-| **Sidebar** | Gainers & losers (positive-only / negative-only). |
-| **Infra** | Gunicorn, background 60s cache refresh, Render deploy config, robust yfinance batch fetching, SQLite WAL + write retries, ticker search HTTP fallback on Render. |
-| **Design** | Light / Dark / Kouros themes; shared dashboard grid; page scroll with unified horizontal scroll (`dashboard-hscroll-track`). |
+| **Sidebar** | Gainers & losers (positive-only / negative-only) plus top predicted up/down, labeled "from your watchlist." |
+| **Live updates** | Dashboard polls `/api/market-data` every 60s and patches price/change/volume/vs-index cells in place — no page reload. Background thread refreshes the shared cache every 60s independent of requests. |
+| **Search** | Direct Yahoo HTTP search tried first (faster), `yfinance.Search` as fallback; surfaces market indexes directly instead of filtering them out. |
+| **Infra** | Gunicorn (1 worker — in-memory cache assumes a single process), background 60s cache refresh, Render deploy config, robust yfinance batch fetching, SQLite WAL + write retries, ticker search HTTP fallback on Render, static asset cache-busting (`?v=<mtime>`) so deploys take effect without a hard refresh. |
+| **Design** | Light / Dark / Kouros themes; shared 22-column dashboard grid; sticky panel header (Add Ticker/Add Fund buttons always visible, never hidden behind horizontal table scroll); modals lock background scroll while open. |
 
-**Not yet:** detail screens, predictions screen, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, live polling.
+**Not yet:** detail screens, predictions screen, daily digest, market pulse, movers scope toggle (watchlist vs funds), model improvements, sparklines, price alerts, CSV export, heat map view.
 
 ---
 
@@ -508,7 +510,7 @@ Once the core is solid:
 
 - **Price alerts** — user sets a threshold, background job checks every 60s, sends an email/push notification
 - **Sparklines** — small 1D line charts in watchlist rows (Canvas or SVG, uses intraday data already fetched)
-- **Live polling** — JS polls `/api/market-data` every 60s, updates cells without page reload
+- ~~**Live polling** — JS polls `/api/market-data` every 60s, updates cells without page reload~~ ✅ shipped
 - **Heat map view** — alternative watchlist view, cells colored by % change
 - **Export** — download your portfolio as CSV
 
@@ -548,7 +550,7 @@ Phase 4 — Sidebar Upgrade
 Phase 5 — Polish
   Price alerts
   Sparklines
-  Live polling
+  Live polling ✅ done
   Heat map
   CSV export
 ```
@@ -582,11 +584,12 @@ utils/
   market.py                yfinance batch fetch, cache, row builder
   predict.py               ML inference
   features.py              Technical indicators
-  watchlist_store.py       Per-user watchlist CRUD
+  symbols.py               Recognizes market index tickers (^GSPC, ^DJI, ...)
+  watchlist_store.py       Per-user watchlist CRUD + quote_type persistence
   position_store.py        Per-user watchlist positions
   fund_store.py            Per-user fund CRUD + holding positions
   refresh.py               Background cache warming
-  ticker_search.py         Live symbol search
+  ticker_search.py         Live symbol/index search
   yfinance_setup.py        yfinance init + Render search fallback
 model/
   trained_model.pkl
@@ -613,4 +616,4 @@ Kouros is a personal portfolio tracker with experimental ML-powered signals. Pre
 
 ---
 
-*Last updated: June 30, 2026 — Phases renumbered 0–5.*
+*Last updated: June 30, 2026 — Live price polling, Indexes watchlist section, fund editing, and sticky panel headers shipped.*
