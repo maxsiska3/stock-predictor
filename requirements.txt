@@ -1,7 +1,4 @@
 flask
-flask-login
-bcrypt
-gunicorn
 pandas
 scikit-learn
 yfinance>=0.2.54

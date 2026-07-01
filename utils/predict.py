@@ -18,7 +18,7 @@ def _flatten_download(df):
 
 
 def predict_stock(ticker, history_df=None) -> tuple:
-    """Predict next-day direction. Pass history_df when market.py already fetched OHLCV."""
+    """Predict next-day direction. Pass history_df to skip a redundant download."""
     if history_df is not None and len(history_df) >= 30:
         raw_df = history_df.copy()
     else:
