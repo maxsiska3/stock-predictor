@@ -108,7 +108,7 @@
     {% set arrow      = "▲" if stock.direction == 1 else "▼" %}
     {% set gl_sign    = "+" if stock.gain_loss is not none and stock.gain_loss >= 0 else "" %}
     <div class="row watchlist-grid table-row{% if fund_id %} fund-holding-row{% endif %}" data-ticker="{{ stock.ticker }}"{% if fund_id %} data-fund-id="{{ fund_id }}"{% endif %}>
-      <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}{{ stock.ticker }}</span>
+      <span class="col-ident symbol-cell">{% if fund_id %}<span class="fund-holding-indent"></span>{% endif %}<a href="{{ yahoo_quote_url(stock.ticker) }}" class="symbol-link" target="_blank" rel="noopener noreferrer">{{ stock.ticker }}</a></span>
       <span class="num" data-field="price">${{ "%.2f"|format(stock.price) }}</span>
       <span class="num cell-pct {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}" data-field="pct_change">{{ chg_sign }}{{ "%.2f"|format(stock.pct_change|abs) }}%</span>
       <span class="num {% if stock.change >= 0 %}cell-up{% else %}cell-down{% endif %}" data-field="change">{{ chg_sign }}${{ "%.2f"|format(stock.change|abs) }}</span>
@@ -347,7 +347,7 @@
           {% set pred_bg = "var(--up-bg)" if item.direction == 1 else "var(--down-bg)" %}
           <div class="row side-row">
             <div style="display:flex;flex-direction:column;min-width:52px">
-              <span style="font-weight:700;font-size:12.5px;line-height:1.25">{{ item.ticker }}</span>
+              <span style="font-weight:700;font-size:12.5px;line-height:1.25"><a href="{{ yahoo_quote_url(item.ticker) }}" class="symbol-link" target="_blank" rel="noopener noreferrer">{{ item.ticker }}</a></span>
               <span class="num" style="font-size:10px;color:var(--muted);line-height:1.2">${{ "%.2f"|format(item.price) }}</span>
             </div>
             <div style="flex:1"></div>
@@ -366,7 +366,7 @@
           {% set sign = "+" if item.pct_change >= 0 else "-" %}
           <div class="row side-row">
             <div style="display:flex;flex-direction:column;min-width:52px">
-              <span style="font-weight:700;font-size:12.5px;line-height:1.25">{{ item.ticker }}</span>
+              <span style="font-weight:700;font-size:12.5px;line-height:1.25"><a href="{{ yahoo_quote_url(item.ticker) }}" class="symbol-link" target="_blank" rel="noopener noreferrer">{{ item.ticker }}</a></span>
               <span class="num" style="font-size:10px;color:var(--muted);line-height:1.2">${{ "%.2f"|format(item.price) }}</span>
             </div>
             <div style="flex:1"></div>
@@ -388,7 +388,7 @@
     </aside>
   </div>
 
-  <footer class="app-footer">© 2026 Kouros — Bringing data to life</footer>
+  {% include 'partials/legal-footer.html' %}
 
   <!-- Add-ticker modal -->
   <div class="modal-overlay" id="add-ticker-modal" hidden>
