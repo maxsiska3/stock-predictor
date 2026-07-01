@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Archivo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('styles.css') }}">
   <script>
     (function () {
       var t = localStorage.getItem("kouros-theme");
@@ -181,7 +181,7 @@
             </div>
             <div class="dashboard-table-body">
 
-              {% if watchlist_stocks or watchlist_etfs %}
+              {% if watchlist_stocks or watchlist_etfs or watchlist_indexes %}
 
                 {% if watchlist_stocks %}
                 <div class="watchlist-section-header watchlist-grid">
@@ -197,6 +197,15 @@
                   <span style="grid-column:1/-1">ETFs <span class="section-header-count">{{ watchlist_etfs|length }}</span></span>
                 </div>
                 {% for stock in watchlist_etfs %}
+                  {{ watchlist_row(stock) }}
+                {% endfor %}
+                {% endif %}
+
+                {% if watchlist_indexes %}
+                <div class="watchlist-section-header watchlist-grid">
+                  <span style="grid-column:1/-1">Indexes <span class="section-header-count">{{ watchlist_indexes|length }}</span></span>
+                </div>
+                {% for stock in watchlist_indexes %}
                   {{ watchlist_row(stock) }}
                 {% endfor %}
                 {% endif %}
@@ -456,7 +465,7 @@
   // Pass server-rendered watchlist symbols to JS for the fund modal
   window.WATCHLIST_SYMBOLS = {{ watchlistSymbols | tojson }};
 </script>
-<script src="{{ url_for('static', filename='theme.js') }}"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script src="{{ asset_url('theme.js') }}"></script>
+<script src="{{ asset_url('dashboard.js') }}"></script>
 </body>
 </html>

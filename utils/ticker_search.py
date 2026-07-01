@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 import yfinance as yf
 
 from utils.yfinance_setup import configure_yfinance, get_yf_session
-from utils.symbols import is_index_symbol, resolve_search_query
 
 configure_yfinance()
 _SESSION = get_yf_session()
@@ -23,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 # Block non-investable types. Using a blocklist (not allowlist) because yfinance
 # returns different quoteType strings across versions (e.g. "EQUITY", "equity",
-# "commonStock"). Blocking known noise types is more robust.
-_BLOCKED_QUOTE_TYPES = {"INDEX", "CURRENCY", "CRYPTOCURRENCY", "FUTURE", "OPTION", "FOREX"}
+# "commonStock"). Blocking known noise types is more robust. INDEX is allowed —
+# tracking the real S&P 500 / Dow / Nasdaq level (^GSPC, ^DJI, ^IXIC) is valid.
+_BLOCKED_QUOTE_TYPES = {"CURRENCY", "CRYPTOCURRENCY", "FUTURE", "OPTION", "FOREX"}
 
 _TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.\-^=]{0,9}$")
 
@@ -76,8 +76,6 @@ def _parse_quotes(quotes, limit):
 
         symbol = str(symbol).upper()
         if symbol in seen_symbols:
-            continue
-        if is_index_symbol(symbol):
             continue
         seen_symbols.add(symbol)
 
@@ -171,26 +169,25 @@ def lookup_quote_type(symbol):
 def _fetch_rows(query, limit):
     """
     Get symbol+name rows — from cache if fresh, otherwise search providers.
-    """
-    alias = resolve_search_query(query)
-    search_q = alias or query
 
-    cached = _get_cached_rows(search_q)
+    The plain HTTP search is tried first: it's a single lightweight request and
+    is consistently faster than yfinance's Search class (which spins up a full
+    curl_cffi-impersonated handshake). yfinance.Search is only used as a fallback
+    if the direct call is blocked/empty, keeping typical keystroke latency low.
+    """
+    cached = _get_cached_rows(query)
     if cached is not None:
         return cached[:limit]
 
-    rows = _yfinance_search(search_q, limit)
+    rows = _yahoo_http_search(query, limit)
     if not rows:
-        rows = _yahoo_http_search(search_q, limit)
+        rows = _yfinance_search(query, limit)
 
-    symbol_guess = search_q.strip().upper()
+    symbol_guess = query.strip().upper()
     if not rows and _TICKER_RE.match(symbol_guess):
-        if is_index_symbol(symbol_guess):
-            rows = []
-        else:
-            rows = _lookup_exact_symbol(symbol_guess)
+        rows = _lookup_exact_symbol(symbol_guess)
 
-    _set_cached_rows(search_q, rows)
+    _set_cached_rows(query, rows)
     return rows
 
 

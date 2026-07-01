@@ -1,5 +1,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
+body.modal-open{overflow:hidden}
 body{
   background:var(--bg);
   color:var(--text);
@@ -102,40 +103,26 @@ body{
   align-items:flex-start;
 }
 
-/* ─── Dashboard layout (page scroll, equal panels) ─────────── */
+/* ─── Dashboard layout (page scroll, equal panels) ───────────
+   Each panel's header row stays normal width (never needs its own scroll —
+   the "+ Add Ticker"/"+ Add Fund" button is always visible). Only the table
+   body (which is wider than the viewport due to many fixed-width columns)
+   scrolls horizontally, scoped to .dashboard-table-wrap. */
 .dashboard-main{
   flex:1;min-width:0;
-  overflow-x:auto;
   padding-bottom:4px;
-}
-.dashboard-hscroll-track{
-  display:inline-block;
-  min-width:100%;
-  vertical-align:top;
 }
 .dashboard-hscroll-track > .dashboard-panel + .dashboard-panel{
   margin-top:14px;
 }
 .dashboard-panel{
   display:flex;flex-direction:column;
-  width:100%;
+  width:100%;min-width:0;
 }
 .dashboard-panel--watchlist .dashboard-table-wrap,
 .dashboard-panel--funds .dashboard-table-wrap{
   display:flex;flex-direction:column;
-}
-.dashboard-panel--watchlist .panel-header-row,
-.dashboard-panel--funds .panel-header-row{
-  position:sticky;left:0;z-index:4;
-  background:var(--panel);
-  width:min(100%,calc(100vw - 316px));
-  box-sizing:border-box;
-}
-@media(max-width:1100px){
-  .dashboard-panel--watchlist .panel-header-row,
-  .dashboard-panel--funds .panel-header-row{
-    width:min(100%,calc(100vw - 28px));
-  }
+  overflow-x:auto;
 }
 .dashboard-panel--watchlist .dashboard-table-inner,
 .dashboard-panel--funds .dashboard-table-inner{
