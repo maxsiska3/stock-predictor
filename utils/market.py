@@ -92,6 +92,40 @@ def _format_clock_time(when=None):
         return when.strftime("%I:%M %p").lstrip("0")
 
 
+def _format_price_timestamp(ts, is_intraday):
+    """
+    Label the recency of the actual price bar being shown — NOT the wall-clock
+    time we happened to fetch it. Using fetch time made "Updated" tick forward
+    every refresh even when the market was closed and the price hadn't moved,
+    which looked like live data when it was really just the last close being
+    re-confirmed. Once the market closes this pins to the closing bar (e.g.
+    "4:00 PM") instead of advancing, and shows the date when it's a stale prior
+    session (weekend/holiday), e.g. "Jun 27, 4:00 PM close".
+    """
+    if hasattr(ts, "to_pydatetime"):
+        ts = ts.to_pydatetime()
+
+    try:
+        time_label = ts.strftime("%-I:%M %p")
+    except ValueError:
+        time_label = ts.strftime("%I:%M %p").lstrip("0")
+
+    if not is_intraday:
+        try:
+            return f"{ts.strftime('%b %-d')} close"
+        except ValueError:
+            return f"{ts.strftime('%b %d').replace(' 0', ' ')} close"
+
+    now = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
+    if ts.date() == now.date():
+        return time_label
+    try:
+        date_label = ts.strftime("%b %-d")
+    except ValueError:
+        date_label = ts.strftime("%b %d").replace(" 0", " ")
+    return f"{date_label}, {time_label} close"
+
+
 def _safe_float(val, digits=2):
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
@@ -216,10 +250,14 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
             raise ValueError(f"No price data for {ticker}")
         current_price = _scalar(ticker_daily["Close"].iloc[-1])
         volume = 0
+        price_ts = ticker_daily.index[-1]
+        price_ts_is_intraday = False
     else:
         current_price = _scalar(ticker_intraday["Close"].iloc[-1])
         vol_sum = ticker_intraday["Volume"].sum()
         volume = int(vol_sum.iloc[0] if hasattr(vol_sum, "iloc") else vol_sum)
+        price_ts = ticker_intraday.index[-1]
+        price_ts_is_intraday = True
 
     change = round(current_price - prev_close, 2)
     pct_change = round((change / prev_close) * 100, 2) if prev_close else 0.0
@@ -276,7 +314,7 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         "sector": sector,
         "direction": int(prediction[0]),
         "confidence": round(float(confidence[0].max()) * 100, 2),
-        "updated_at": _format_clock_time(),
+        "updated_at": _format_price_timestamp(price_ts, price_ts_is_intraday),
     }
 
 

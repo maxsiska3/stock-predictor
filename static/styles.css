@@ -98,6 +98,24 @@ body{
   font-size:12px;color:var(--muted);
 }
 
+/* Market open/closed pill — makes it explicit when prices shown are the last
+   close being re-confirmed, not a live intraday move. */
+.market-status-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted2);
+  padding:3px 8px 3px 6px;border-radius:20px;
+  background:var(--sub-bg);border:1px solid var(--line2);
+}
+.market-status-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--muted);flex:none;
+}
+.market-status-pill[data-status="open"]{color:var(--up)}
+.market-status-pill[data-status="open"] .market-status-dot{background:var(--up)}
+.market-status-pill[data-status="closed"] .market-status-dot,
+.market-status-pill[data-status="weekend"] .market-status-dot{background:var(--down)}
+
 .app-body{
   flex:1;display:flex;gap:14px;padding:14px;
   align-items:flex-start;

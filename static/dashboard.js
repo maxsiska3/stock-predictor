@@ -798,6 +798,14 @@
       }
     }
 
+    function updateMarketStatusPill(data) {
+      var pill = $("market-status-pill");
+      var label = $("market-status-label");
+      if (!pill || !data.marketStatus) return;
+      pill.setAttribute("data-status", data.marketStatus);
+      if (label && data.marketStatusLabel) label.textContent = data.marketStatusLabel;
+    }
+
     function poll() {
       if (document.hidden) return;
       fetch("/api/market-data")
@@ -810,6 +818,7 @@
             var ticker = row.getAttribute("data-ticker");
             if (byTicker[ticker]) updateRow(row, byTicker[ticker]);
           });
+          updateMarketStatusPill(res.data);
           if (window.applyDashboardBenchmark) {
             var sel = document.querySelector(".benchmark-select");
             if (sel) window.applyDashboardBenchmark(sel.value);
@@ -819,6 +828,12 @@
     }
 
     setInterval(poll, POLL_MS);
+    // Tab was backgrounded (poll() no-ops while hidden) — refresh immediately
+    // on return instead of waiting up to POLL_MS, e.g. after the market opens
+    // while the dashboard was left open in another tab overnight.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) poll();
+    });
   })();
 
 
