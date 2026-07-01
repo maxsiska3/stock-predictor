@@ -41,7 +41,6 @@ from utils.watchlist_store import (
     load_watchlist,
     load_watchlist_quote_types,
     remove_ticker,
-    upgrade_index_symbols,
 )
 
 app = Flask(__name__)
@@ -53,6 +52,22 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
+
+
+@app.template_global()
+def asset_url(filename):
+    """
+    Static asset URL with a cache-busting ?v=<mtime> query string. Without this,
+    browsers can keep serving a stale cached dashboard.js/styles.css for hours
+    after a deploy (Flask's default static Cache-Control), so UI fixes silently
+    fail to appear until a hard refresh.
+    """
+    static_path = os.path.join(app.static_folder, filename)
+    try:
+        version = int(os.path.getmtime(static_path))
+    except OSError:
+        version = 0
+    return url_for("static", filename=filename) + f"?v={version}"
 
 
 @login_manager.user_loader
@@ -415,7 +430,6 @@ def _load_dashboard_context(user_id):
     # refresh thread (utils/refresh.py) is solely responsible for talking to
     # yfinance, so a slow/rate-limited Yahoo response never stalls a request.
     ensure_watchlist_quote_types(user_id)
-    upgrade_index_symbols(user_id)
     quote_types     = load_watchlist_quote_types(user_id)
     market_data   = fetch_market_data(tickers, wait=False)
 
@@ -425,15 +439,20 @@ def _load_dashboard_context(user_id):
     lookup            = {item["ticker"]: item for item in market_data}
     watchlist_rows    = _attach_vs_benchmarks(watchlist_rows, lookup)
 
-    # Split into stocks and ETFs for grouped display in the watchlist table
-    watchlist_stocks = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") != "ETF"]
-    watchlist_etfs   = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") == "ETF"]
+    # Split into stocks / ETFs / indexes for grouped display in the watchlist table.
+    # Indexes (^GSPC, ^DJI, ^IXIC) show the real index level, not an ETF price.
+    watchlist_indexes = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") == "INDEX"]
+    watchlist_etfs    = [r for r in watchlist_rows if r.get("quote_type", "EQUITY") == "ETF"]
+    watchlist_stocks  = [
+        r for r in watchlist_rows
+        if r.get("quote_type", "EQUITY") not in ("ETF", "INDEX")
+    ]
 
     mover_groups, pred_groups = build_groups(watchlist_rows)
     funds         = build_funds(market_data, user_funds)
     sector_groups = build_sector_chart(watchlist_rows)
 
-    return watchlist_stocks, watchlist_etfs, watchlist_rows, mover_groups, pred_groups, funds, sector_groups
+    return watchlist_stocks, watchlist_etfs, watchlist_indexes, watchlist_rows, mover_groups, pred_groups, funds, sector_groups
 
 
 # ── Auth routes ─────────────────────────────────────────────
@@ -495,12 +514,13 @@ def home():
     # Used by the Add Fund modal to list tickers the user can add to a fund.
     raw_watchlist_symbols = load_watchlist(current_user.id)
 
-    watchlist_stocks, watchlist_etfs, watchlist_rows, mover_groups, pred_groups, funds, sector_groups = _load_dashboard_context(current_user.id)
+    watchlist_stocks, watchlist_etfs, watchlist_indexes, watchlist_rows, mover_groups, pred_groups, funds, sector_groups = _load_dashboard_context(current_user.id)
 
     return render_template(
         "landing-screen.html",
         watchlist_stocks=watchlist_stocks,
         watchlist_etfs=watchlist_etfs,
+        watchlist_indexes=watchlist_indexes,
         watchlist=watchlist_rows,
         funds=funds,
         moverGroups=mover_groups,
@@ -518,7 +538,7 @@ def home():
 @app.route("/api/market-data")
 @login_required
 def api_market_data():
-    _stocks, _etfs, watchlist_rows, mover_groups, pred_groups, _funds, _sectors = _load_dashboard_context(current_user.id)
+    _stocks, _etfs, _indexes, watchlist_rows, mover_groups, pred_groups, _funds, _sectors = _load_dashboard_context(current_user.id)
     return jsonify({
         "watchlist": watchlist_rows,
         "moverGroups": mover_groups,

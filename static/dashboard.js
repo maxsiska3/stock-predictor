@@ -8,9 +8,21 @@
  *   - Profile menu toggle
  */
 (function () {
-  var DEBOUNCE_MS = 300;
+  var DEBOUNCE_MS = 200;
 
   function $(id) { return document.getElementById(id); }
+
+  /* Body scroll lock — prevents the page underneath from scrolling while any
+     modal is open. Counter-based so nested/overlapping opens stay balanced. */
+  var _scrollLockCount = 0;
+  function lockBodyScroll() {
+    _scrollLockCount++;
+    document.body.classList.add("modal-open");
+  }
+  function unlockBodyScroll() {
+    _scrollLockCount = Math.max(0, _scrollLockCount - 1);
+    if (_scrollLockCount === 0) document.body.classList.remove("modal-open");
+  }
 
   /* ══════════════════════════════════════════════════════════
      ADD-TICKER MODAL
@@ -34,6 +46,7 @@
 
     function openModal() {
       modal.hidden = false;
+      lockBodyScroll();
       selected.clear();
       messageEl.textContent = "";
       searchInput.value = "";
@@ -48,6 +61,7 @@
 
     function closeModal() {
       modal.hidden = true;
+      unlockBodyScroll();
       selected.clear();
       if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
     }
@@ -214,6 +228,7 @@
     function openCreateModal() {
       resetModalMode();
       modal.hidden = false;
+      lockBodyScroll();
       selected.clear();
       nameInput.value = "";
       searchInput.value = "";
@@ -230,6 +245,7 @@
       if (titleEl) titleEl.textContent = "Edit Fund";
       confirmBtn.textContent = "Save Changes";
       modal.hidden = false;
+      lockBodyScroll();
       selected = new Set(tickers || []);
       nameInput.value = fundName || "";
       searchInput.value = "";
@@ -245,6 +261,7 @@
 
     function closeModal() {
       modal.hidden = true;
+      unlockBodyScroll();
       selected.clear();
       resetModalMode();
       renderFundChips();
@@ -395,6 +412,7 @@
 
     function openModal(ticker, existingShares, existingCost, fundId) {
       modal.hidden = false;
+      lockBodyScroll();
       fundIdInput.value = fundId || "";
       titleEl.textContent = fundId ? ("Fund position — " + ticker) : ("Position — " + ticker);
       tickerInput.value = ticker;
@@ -407,7 +425,7 @@
       setTimeout(function () { sharesInput.focus(); }, 50);
     }
 
-    function closeModal() { modal.hidden = true; }
+    function closeModal() { modal.hidden = true; unlockBodyScroll(); }
 
     function onSave() {
       var ticker  = tickerInput.value;
@@ -657,10 +675,10 @@
 
       el.appendChild(check); el.appendChild(sym); el.appendChild(sep); el.appendChild(name);
 
-      if (row.quote_type === "ETF") {
+      if (row.quote_type === "ETF" || row.quote_type === "INDEX") {
         var typeTag = document.createElement("span");
         typeTag.className = "ticker-result-tag";
-        typeTag.textContent = "ETF";
+        typeTag.textContent = row.quote_type === "INDEX" ? "INDEX" : "ETF";
         el.appendChild(typeTag);
       }
 
