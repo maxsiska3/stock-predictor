@@ -30,6 +30,7 @@ from utils.fund_store import (
     upsert_fund_holding_position,
 )
 from utils.market import fetch_market_data
+from utils.market_hours import market_status, market_status_label
 from utils.position_store import PositionError, delete_position, get_all_positions, upsert_position
 from utils.predict import predict_stock
 from utils.refresh import start_background_refresh
@@ -326,7 +327,10 @@ def build_funds(market_data, user_funds):
 
         holding_rows = _attach_vs_benchmarks(holding_rows, lookup)
         total = len(market_holdings)
-        updated_at = _format_clock_time()
+        # Reuse a holding's actual data timestamp (not wall-clock fetch time) so
+        # a fund reads "4:00 PM close" instead of falsely ticking forward every
+        # refresh while the market is closed.
+        updated_at = market_holdings[0]["updated_at"] if market_holdings else _format_clock_time()
         position_totals = _aggregate_fund_positions(holding_rows)
 
         if total == 0:
@@ -532,6 +536,8 @@ def home():
         benchmarkOptions=BENCHMARK_OPTIONS,
         theme="light",
         now=_format_clock_time(),
+        marketStatus=market_status(),
+        marketStatusLabel=market_status_label(),
     )
 
 
@@ -543,6 +549,8 @@ def api_market_data():
         "watchlist": watchlist_rows,
         "moverGroups": mover_groups,
         "predGroups": pred_groups,
+        "marketStatus": market_status(),
+        "marketStatusLabel": market_status_label(),
     })
 
 

@@ -149,6 +149,9 @@
           <div style="display:flex;align-items:baseline;gap:9px">
             <h2 class="section-title">Watchlist</h2>
             <span class="num section-count">{{ watchCount }} symbols</span>
+            <span class="market-status-pill" id="market-status-pill" data-status="{{ marketStatus }}">
+              <span class="market-status-dot"></span><span id="market-status-label">{{ marketStatusLabel }}</span>
+            </span>
           </div>
           <button type="button" class="btn-accent" id="add-ticker-btn">+ Add Ticker</button>
         </div>
