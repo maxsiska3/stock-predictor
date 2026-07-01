@@ -35,6 +35,7 @@ from utils.position_store import PositionError, delete_position, get_all_positio
 from utils.predict import predict_stock
 from utils.refresh import start_background_refresh
 from utils.ticker_search import search_tickers
+from utils.yahoo_links import yahoo_quote_url as _yahoo_quote_url
 from utils.watchlist_store import (
     WatchlistError,
     add_tickers,
@@ -53,6 +54,11 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
+
+
+@app.template_global()
+def yahoo_quote_url(symbol):
+    return _yahoo_quote_url(symbol)
 
 
 @app.template_global()
@@ -460,6 +466,11 @@ def _load_dashboard_context(user_id):
 
 
 # ── Auth routes ─────────────────────────────────────────────
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
 
 @app.route("/health")
 def health():
