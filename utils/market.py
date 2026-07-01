@@ -25,6 +25,7 @@ configure_yfinance()
 _SESSION = get_yf_session()
 
 from utils.features import compute_features
+from utils.market_hours import is_market_open
 from utils.predict import predict_stock
 from utils.ticker_search import lookup_quote_type
 
@@ -253,11 +254,27 @@ def _build_row(ticker, ticker_daily, ticker_intraday, ticker_year):
         price_ts = ticker_daily.index[-1]
         price_ts_is_intraday = False
     else:
-        current_price = _scalar(ticker_intraday["Close"].iloc[-1])
-        vol_sum = ticker_intraday["Volume"].sum()
-        volume = int(vol_sum.iloc[0] if hasattr(vol_sum, "iloc") else vol_sum)
-        price_ts = ticker_intraday.index[-1]
-        price_ts_is_intraday = True
+        daily_has_today = (
+            ticker_daily is not None
+            and not ticker_daily.empty
+            and ticker_daily.index[-1].date() == ticker_intraday.index[-1].date()
+        )
+        if not is_market_open() and daily_has_today:
+            # Market closed: the last 1-minute bar (e.g. a "3:59 PM" bucket) can
+            # predate the official 4:00 PM closing-auction print, which only
+            # lands in the daily bar. Once today's daily row exists, its
+            # Close/Volume are the finalized official numbers — prefer those
+            # over the possibly-stale last intraday tick.
+            current_price = _scalar(ticker_daily["Close"].iloc[-1])
+            volume = int(_scalar(ticker_daily["Volume"].iloc[-1]))
+            price_ts = ticker_daily.index[-1]
+            price_ts_is_intraday = False
+        else:
+            current_price = _scalar(ticker_intraday["Close"].iloc[-1])
+            vol_sum = ticker_intraday["Volume"].sum()
+            volume = int(vol_sum.iloc[0] if hasattr(vol_sum, "iloc") else vol_sum)
+            price_ts = ticker_intraday.index[-1]
+            price_ts_is_intraday = True
 
     change = round(current_price - prev_close, 2)
     pct_change = round((change / prev_close) * 100, 2) if prev_close else 0.0
