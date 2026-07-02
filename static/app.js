@@ -46,10 +46,10 @@
       return (b.confidence || 0) - (a.confidence || 0);
     });
 
-    bodyEl.innerHTML = sorted.map(function (row) {
-      var conf = row.error ? "—" : row.confidence.toFixed(2) + "%";
+    bodyEl.innerHTML = sorted.map(function (row, i) {
+      var conf = row.error ? "N/A" : row.confidence.toFixed(2) + "%";
       return (
-        "<tr>" +
+        "<tr class=\"pred-row\" style=\"animation-delay:" + (i < 12 ? i * 20 : 0) + "ms\">" +
         "<td><strong>" + escapeHtml(row.ticker) + "</strong></td>" +
         "<td>" + directionBadge(row) + "</td>" +
         "<td>" + conf + "</td>" +

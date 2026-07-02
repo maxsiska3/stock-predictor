@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kouros — Next-Day Predictor</title>
+  <title>Kouros: Next-Day Predictor</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,14 +67,16 @@
             </tr>
           </thead>
           <tbody id="pred-body">
-            <tr><td colspan="3" class="empty">Fetching predictions…</td></tr>
+            <tr class="skeleton-row"><td><div class="skeleton-bar" style="width:52px"></div></td><td><div class="skeleton-bar" style="width:64px"></div></td><td><div class="skeleton-bar" style="width:44px"></div></td></tr>
+            <tr class="skeleton-row"><td><div class="skeleton-bar" style="width:44px"></div></td><td><div class="skeleton-bar" style="width:64px"></div></td><td><div class="skeleton-bar" style="width:44px"></div></td></tr>
+            <tr class="skeleton-row"><td><div class="skeleton-bar" style="width:60px"></div></td><td><div class="skeleton-bar" style="width:64px"></div></td><td><div class="skeleton-bar" style="width:44px"></div></td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <footer class="footer">
-      Experimental ML signals — not financial advice. Market data via yfinance for personal use.
+      Experimental ML signals. Not financial advice, market data via yfinance for personal use only.
     </footer>
   </div>
 
