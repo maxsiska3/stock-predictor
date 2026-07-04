@@ -9,8 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://api.fontshare.com">
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232e63d8'/%3E%3Cpath d='M8 21l6-7 4 4 6-8' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Marcellus+SC&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23c9a84c'/%3E%3Cpolygon fill='%230a0f1e' points='20,14 36,14 36,86 20,86'/%3E%3Cpolygon fill='%230a0f1e' points='36,50 49,50 84,86 67,86'/%3E%3Cpolygon fill='%230a0f1e' points='36,45 87,8 92,15 41,52'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -29,65 +30,180 @@
     --up-soft: rgba(23, 138, 82, .09);
     --down: #d13d4e;
     --down-soft: rgba(209, 61, 78, .08);
-    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
     --sans: "Satoshi", -apple-system, sans-serif;
     --disp: "Satoshi", var(--sans);
     --alt: "Inter", -apple-system, sans-serif;
+    --data: "General Sans", var(--sans);
     --shadow: 0 1px 2px rgba(37, 63, 130, .05), 0 6px 18px rgba(37, 63, 130, .05);
     --ease: cubic-bezier(.32, .72, 0, 1);
     --spring: cubic-bezier(.34, 1.2, .5, 1);
     --r: 8px;
   }
   * { box-sizing: border-box; }
+  html { height: 100%; }
   body {
     margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
     background: var(--bg);
     color: var(--text);
     font: 400 14px/1.5 var(--sans);
     -webkit-font-smoothing: antialiased;
   }
-  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--data); font-variant-numeric: tabular-nums; }
   :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   ::selection { background: var(--blue-soft); }
 
-  /* ---------- 1. indices strip ---------- */
-  .indices {
-    position: sticky; top: 0; z-index: 10;
-    display: flex; justify-content: center;
-    background: rgba(255, 255, 255, .92);
+  /* ---------- 1. header: marquee + brand ---------- */
+  .top-bar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: stretch;
+    min-height: 52px;
+    background: rgba(255, 255, 255, .94);
     backdrop-filter: blur(10px);
     border-top: 2px solid var(--blue);
     border-bottom: 1px solid var(--line);
   }
+  .indices-marquee {
+    flex: 1; min-width: 0; overflow: hidden;
+    display: flex; align-items: center;
+    mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  }
+  .indices-track {
+    display: flex; width: max-content;
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .indices-track { animation: idxScroll 55s linear infinite; }
+    .indices-track:hover { animation-play-state: paused; }
+    @keyframes idxScroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+  }
   .idx {
-    display: flex; align-items: baseline; gap: 12px;
-    padding: 13px 30px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 22px;
+    white-space: nowrap;
+    border-right: 1px solid var(--hair);
+    font-family: var(--alt);
   }
-  .idx + .idx { border-left: 1px solid var(--hair); }
+  .idx .sym {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--faint);
+  }
   .idx .name {
-    font-family: var(--disp);
-    font-size: 11.5px; font-weight: 600;
-    letter-spacing: .1em; text-transform: uppercase;
-    color: var(--dim);
+    font-size: 13px; font-weight: 500;
+    color: var(--text);
   }
-  .idx .dir { font-family: var(--mono); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .idx .dir {
+    font-size: 13px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
   .idx .dir.up { color: var(--up); }
   .idx .dir.down { color: var(--down); }
-  .idx .when { font-family: var(--alt); font-weight: 400; font-size: 11px; color: var(--faint); }
+  .idx .when { font-size: 11px; font-weight: 400; color: var(--faint); }
 
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px 80px; }
+  .brand {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding: 0 20px 0 16px;
+    border-left: 1px solid var(--line);
+    text-decoration: none;
+    transition: color .2s var(--ease);
+  }
+  .brand-word {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: "Marcellus SC", Georgia, serif;
+    font-size: 17px;
+    line-height: 1;
+    white-space: nowrap;
+    color: #0a0f1e;
+    transition: color .2s var(--ease);
+  }
+  .brand:hover .brand-word { color: #c9a84c; }
+  .brand-k {
+    width: 0.95em;
+    height: 0.95em;
+    flex: 0 0 auto;
+    display: inline-block;
+    margin-right: -0.04em;
+    position: relative;
+    top: 0.08em;
+  }
+  .brand-k svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .brand-k polygon {
+    fill: #c9a84c;
+    transition: fill .2s var(--ease);
+  }
+  .brand:hover .brand-k polygon { fill: #c9a84c; }
+  .brand-rest {
+    letter-spacing: 0.13em;
+    padding-right: 0.13em;
+  }
 
-  /* ---------- 2. search ---------- */
-  .search { display: flex; gap: 8px; margin: 40px auto 0; max-width: 540px; }
+  .wrap {
+    flex: 1;
+    width: 100%;
+    max-width: 1520px;
+    margin: 0 auto;
+    padding: 0 clamp(36px, 6vw, 80px) 56px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- 2. search + hero panel ---------- */
+  .search-zone {
+    padding: 24px 0 8px;
+  }
+  .terminal-panel {
+    background: linear-gradient(180deg, #fafbfd 0%, #fff 42%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .terminal-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: #fff;
+    border-bottom: 1px solid var(--hair);
+  }
+  .terminal-head-label {
+    flex: 0 0 auto;
+    font-family: var(--alt);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .search {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    margin: 0;
+    min-width: 0;
+  }
   .search input {
     flex: 1;
     background: var(--bg);
     border: 1px solid var(--line);
     border-radius: var(--r);
     color: var(--text);
-    font-family: var(--mono);
+    font-family: var(--alt);
     font-size: 15px;
-    letter-spacing: .08em;
+    font-weight: 500;
+    letter-spacing: .02em;
     text-transform: uppercase;
     padding: 12px 16px;
     outline: none;
@@ -112,49 +228,67 @@
   .search button:active { transform: scale(.97); }
   #searchError {
     display: none;
-    text-align: center;
     color: var(--down);
     font-size: 13px;
-    margin-top: 10px;
+    padding: 0 20px 12px;
+    margin: 0;
+    background: #fff;
+    border-bottom: 1px solid var(--hair);
   }
 
   /* ---------- 3. hero: confidence card ---------- */
   .hero {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(140px, 0.85fr) minmax(0, 2.6fr) minmax(120px, 0.75fr);
     align-items: center;
-    gap: 40px;
-    padding: 40px 8px 44px;
-    border-bottom: 1px solid var(--line);
+    gap: clamp(16px, 2.5vw, 32px);
+    padding: 18px 20px 20px;
+    border-bottom: none;
+    width: 100%;
   }
   .hero::before {
     content: "";
     position: absolute; inset: 0;
     background-image: radial-gradient(#dbe2ec 1px, transparent 1px);
     background-size: 16px 16px;
-    -webkit-mask-image: radial-gradient(ellipse 42% 85% at 50% 48%, #000 25%, transparent 72%);
-    mask-image: radial-gradient(ellipse 42% 85% at 50% 48%, #000 25%, transparent 72%);
+    -webkit-mask-image: radial-gradient(ellipse 55% 90% at 50% 40%, #000 20%, transparent 78%);
+    mask-image: radial-gradient(ellipse 55% 90% at 50% 40%, #000 20%, transparent 78%);
     pointer-events: none;
+    opacity: .85;
   }
-  .hero .who .tkr { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
+  .hero .who .tkr { font-family: var(--data); font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
   .hero .who .sector { color: var(--dim); font-size: 13px; margin-top: 2px; }
   .hero .who .px { font-family: var(--alt); font-weight: 400; color: var(--dim); font-size: 13.5px; margin-top: 12px; }
-  .hero .who .px .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .hero .who .px .mono { font-family: var(--data); font-variant-numeric: tabular-nums; }
 
-  /* ---------- ConfidenceCard ---------- */
+  /* ---------- ConfidenceCard (horizontal) ---------- */
   .conf-card {
-    width: 380px; max-width: 100%;
+    width: 100%;
     background: #fff;
     border: 1px solid #E5E7EB;
-    border-radius: 20px;
-    padding: 38px 36px;
-    text-align: center;
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px 28px;
     box-shadow: 0 8px 30px rgba(15, 23, 42, .05);
+  }
+  .cc-primary {
+    display: flex; align-items: center; gap: 14px;
+    min-width: 0;
+  }
+  .cc-mid { min-width: 0; }
+  .cc-side {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 10px; text-align: right;
+    min-width: 148px;
   }
   .cc-arrow {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 40px; height: 40px; border-radius: 12px;
+    width: 44px; height: 44px; border-radius: 12px;
+    flex: 0 0 auto;
   }
   .conf-card.up .cc-arrow { color: #16A34A; background: rgba(34, 197, 94, .1); }
   .conf-card.down .cc-arrow { color: #DC2626; background: rgba(220, 38, 38, .08); }
@@ -162,10 +296,16 @@
   .conf-card .a-down { display: none; }
   .conf-card.down .a-up { display: none; }
   .conf-card.down .a-down { display: block; }
-  .cc-word { font-family: var(--disp); font-size: 34px; font-weight: 700; color: #111827; line-height: 1.15; margin-top: 10px; }
-  .cc-conf { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 58px; font-weight: 700; color: #111827; line-height: 1.05; margin-top: 2px; }
-  .cc-conf-label { font-family: var(--alt); font-size: 18px; font-weight: 500; color: #6B7280; margin-top: 4px; }
-  .cc-bar { position: relative; height: 8px; border-radius: 9999px; background: #E5E7EB; margin: 24px 0 18px; }
+  .cc-word { font-family: var(--disp); font-size: 26px; font-weight: 700; color: #111827; line-height: 1.1; }
+  .cc-conf-row { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .cc-conf {
+    font-family: var(--alt);
+    font-variant-numeric: tabular-nums;
+    font-size: 42px; font-weight: 600;
+    color: #111827; line-height: 1;
+  }
+  .cc-conf-label { font-family: var(--alt); font-size: 14px; font-weight: 500; color: #6B7280; }
+  .cc-bar { position: relative; height: 8px; border-radius: 9999px; background: #E5E7EB; margin: 0 0 12px; }
   .cc-fill {
     position: absolute; left: 0; top: 0; height: 100%; width: 0;
     border-radius: 9999px;
@@ -189,12 +329,16 @@
     background: rgba(34, 197, 94, .08);
     border: 1px solid rgba(34, 197, 94, .15);
     color: #15803D;
+    white-space: nowrap;
   }
   .cc-pill.off { background: #F3F4F6; border-color: #E5E7EB; color: #6B7280; }
-  .cc-divider { height: 1px; background: #E5E7EB; margin: 22px 0 16px; }
+  .cc-extra {
+    font-family: var(--alt); font-size: 12px; font-weight: 400;
+    color: var(--faint); line-height: 1.45;
+  }
   .cc-signals {
     display: inline-flex; align-items: center; gap: 7px;
-    font-family: var(--alt); font-size: 14.5px; font-weight: 500; color: #6B7280;
+    font-family: var(--alt); font-size: 13.5px; font-weight: 500; color: #6B7280;
   }
   .cc-signals svg { width: 17px; height: 17px; color: #16A34A; flex: 0 0 auto; }
   @media (prefers-reduced-motion: no-preference) {
@@ -214,11 +358,11 @@
     font-size: 16px; font-weight: 600;
     letter-spacing: -.01em;
     color: var(--text);
-    margin: 52px 0 18px;
+    margin: 40px 0 16px;
   }
   section > h2::before {
     content: counter(sec, decimal-leading-zero);
-    font-family: var(--mono);
+    font-family: var(--data);
     font-size: 11px; font-weight: 600;
     letter-spacing: .08em;
     color: var(--blue);
@@ -247,7 +391,7 @@
     letter-spacing: .1em; text-transform: uppercase;
     color: var(--dim);
   }
-  .fhead .fval { font-family: var(--mono); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .fhead .fval { font-family: var(--data); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .spark { width: 56px; height: 18px; display: block; flex: 0 0 auto; }
   .spark polyline { fill: none; stroke: #aeb9cb; stroke-width: 1.5; stroke-linejoin: round; }
   .spark circle { fill: var(--blue); }
@@ -256,7 +400,7 @@
   .gauge .track { fill: none; stroke: var(--hair); stroke-width: 6; stroke-linecap: round; }
   .gauge .fill { fill: none; stroke: var(--blue); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .9s var(--ease); }
   .gauge .tick { stroke: var(--blue); stroke-opacity: .6; stroke-width: 1.5; }
-  .gauge text { fill: var(--faint); font-family: var(--mono); font-size: 9px; }
+  .gauge text { fill: var(--faint); font-family: var(--data); font-size: 9px; }
   .bar { position: relative; height: 6px; border-radius: 2px; background: var(--hair); margin: 14px 0 6px; }
   .bar .fillspan { position: absolute; top: 0; height: 100%; border-radius: 2px; background: var(--blue); transition: width .8s var(--ease), left .8s var(--ease), background .3s; }
   .bar .marker { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--blue); transition: left .8s var(--spring); }
@@ -264,7 +408,166 @@
   .bar-ends { display: flex; justify-content: space-between; font-family: var(--alt); font-weight: 400; font-size: 10px; letter-spacing: .02em; color: var(--faint); }
 
   /* ---------- 5. history ---------- */
-  .chartbox { height: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+  .history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 40px 0 16px;
+  }
+  .history-head h2 {
+    counter-increment: sec;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-family: var(--disp);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--text);
+  }
+  .history-head h2::before {
+    content: counter(sec, decimal-leading-zero);
+    font-family: var(--data);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--blue);
+  }
+  .history-head h2::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+  .chart-toggle {
+    display: inline-flex;
+    padding: 3px;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    flex: 0 0 auto;
+  }
+  .chart-toggle-btn {
+    font-family: var(--alt);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dim);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background .2s var(--ease), color .2s var(--ease);
+  }
+  .chart-toggle-btn:hover { color: var(--text); }
+  .chart-toggle-btn.active {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(37, 63, 130, .08);
+  }
+  .chart-toggle-btn:active { transform: scale(.98); }
+  .chartbox {
+    position: relative;
+    height: 300px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 16px;
+  }
+  .chartbox canvas { display: block; width: 100% !important; height: 100% !important; }
+  .candle-chart {
+    position: absolute;
+    inset: 16px;
+    display: none;
+  }
+  .candle-chart.active { display: block; }
+  .candle-chart svg { width: 100%; height: 100%; display: block; }
+  .candle-chart .grid-line { stroke: #eef1f6; stroke-width: 1; }
+  .candle-chart .axis-label {
+    fill: #8b94a7;
+    font-family: "General Sans", "Satoshi", sans-serif;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .candle-chart .axis-label.x {
+    font-family: "Inter", sans-serif;
+    font-size: 10px;
+  }
+  .candle-chart .wick { stroke-width: 1.5; stroke-linecap: round; }
+  .candle-chart .body { stroke-width: 1; }
+  .candle-chart .up .wick, .candle-chart .up .body { stroke: #178a52; fill: #178a52; }
+  .candle-chart .down .wick, .candle-chart .down .body { stroke: #d13d4e; fill: #d13d4e; }
+  .candle-chart .candle-group.dim { opacity: .35; }
+  .candle-chart .candle-hit { fill: transparent; cursor: crosshair; }
+  .candle-tip {
+    position: absolute;
+    pointer-events: none;
+    z-index: 2;
+    min-width: 148px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+    transform: translate(-50%, calc(-100% - 8px));
+    opacity: 0;
+    transition: opacity .12s var(--ease);
+  }
+  .candle-tip.visible { opacity: 1; }
+  .candle-tip.up { border-color: rgba(23, 138, 82, .28); }
+  .candle-tip.down { border-color: rgba(209, 61, 78, .28); }
+  .candle-tip .tip-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .candle-tip .tip-date {
+    font-family: var(--alt);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0;
+  }
+  .candle-tip .tip-dir {
+    font-family: var(--alt);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .candle-tip.up .tip-dir {
+    color: var(--up);
+    background: var(--up-soft);
+  }
+  .candle-tip.down .tip-dir {
+    color: var(--down);
+    background: var(--down-soft);
+  }
+  .candle-tip dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    font-size: 11.5px;
+  }
+  .candle-tip dt {
+    font-family: var(--alt);
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .candle-tip dd {
+    margin: 0;
+    font-family: var(--data);
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    text-align: right;
+  }
+  .candle-tip dd.tip-high { color: var(--up); }
+  .candle-tip dd.tip-low { color: var(--down); }
+  .candle-tip dd.tip-close.up { color: var(--up); font-weight: 600; }
+  .candle-tip dd.tip-close.down { color: var(--down); font-weight: 600; }
   .last5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
   .p5 {
     background: var(--panel);
@@ -272,7 +575,7 @@
     border-radius: var(--r);
     padding: 10px 13px;
     display: flex; justify-content: space-between; align-items: center;
-    font-family: var(--mono); font-size: 12px;
+    font-family: var(--data); font-size: 12px;
     transition: border-color .35s var(--ease);
   }
   .p5:hover { border-color: #ccd4e0; }
@@ -302,14 +605,14 @@
     border-bottom: 1px solid var(--hair);
   }
   .stat-row { display: flex; gap: 26px; }
-  .stat .big { font-family: var(--mono); font-size: 29px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .big { font-family: var(--data); font-size: 29px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .stat .big small { font-size: 14px; color: var(--dim); font-weight: 400; }
   .stat .sub { font-size: 11px; color: var(--faint); }
   .brier { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: baseline; }
   .brier .sub { font-size: 11.5px; color: var(--faint); }
-  .brier .big { font-family: var(--mono); font-size: 21px; font-weight: 600; }
+  .brier .big { font-family: var(--data); font-size: 21px; font-weight: 600; }
 
-  .hbar { display: grid; grid-template-columns: 56px 1fr 52px; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; }
+  .hbar { display: grid; grid-template-columns: 56px 1fr 52px; align-items: center; gap: 10px; font-family: var(--data); font-size: 12px; }
   .hbar + .hbar { margin-top: 11px; }
   .hbar .lbl { color: var(--dim); }
   .hbar .pct { text-align: right; font-variant-numeric: tabular-nums; }
@@ -318,7 +621,7 @@
   .hbar.best .fl { background: var(--blue); }
   .hbar.best .pct, .hbar.best .lbl { color: var(--blue); }
 
-  table.mini { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  table.mini { width: 100%; border-collapse: collapse; font-family: var(--data); font-size: 12.5px; font-variant-numeric: tabular-nums; }
   table.mini td { padding: 7px 0; border-bottom: 1px solid var(--hair); }
   table.mini tr:last-child td { border-bottom: 0; }
   table.mini td:nth-child(2) { text-align: right; color: var(--faint); }
@@ -331,7 +634,7 @@
   .sector { display: grid; grid-template-columns: 84px 1fr 44px; align-items: center; gap: 10px; font-size: 12px; }
   .sector + .sector { margin-top: 10px; }
   .sector .nm { color: var(--dim); }
-  .sector .pc { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .sector .pc { font-family: var(--data); text-align: right; font-variant-numeric: tabular-nums; }
   .sector .pc.up { color: var(--up); }
   .sector .pc.down { color: var(--down); }
   .diverge { position: relative; height: 5px; background: var(--hair); border-radius: 2px; }
@@ -343,7 +646,7 @@
   .bullbear-bar {
     display: flex; height: 26px; border-radius: 4px; overflow: hidden;
     margin: 16px 0 10px;
-    font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+    font-family: var(--data); font-size: 11.5px; font-weight: 600;
   }
   .bullbear-bar .bull { background: var(--up); color: #fff; display: flex; align-items: center; padding-left: 10px; }
   .bullbear-bar .bear { background: var(--down); color: #fff; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; }
@@ -369,30 +672,67 @@
 
   @media (max-width: 900px) {
     .features { grid-template-columns: repeat(2, 1fr); }
-    .hero { grid-template-columns: 1fr; text-align: center; gap: 20px; padding-top: 28px; }
+    .search-zone { padding-top: 20px; }
+    .terminal-head { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px; }
+    .terminal-head-label { display: none; }
+    .hero {
+      grid-template-columns: 1fr;
+      text-align: center;
+      gap: 16px;
+      padding: 16px;
+    }
     .hero .meta { text-align: center; }
-    .conf-card { margin: 0 auto; width: 100%; padding: 24px; }
-    .cc-word { font-size: 30px; }
-    .cc-conf { font-size: 48px; }
+    .conf-card {
+      grid-template-columns: 1fr;
+      padding: 18px;
+      gap: 14px;
+    }
+    .cc-primary { justify-content: center; }
+    .cc-side { align-items: center; text-align: center; min-width: 0; }
+    .cc-word { font-size: 24px; }
+    .cc-conf { font-size: 36px; }
+    .cc-conf-row { justify-content: center; }
     .metrics-track, .metrics-market { grid-template-columns: 1fr; }
     .last5 { grid-template-columns: 1fr; }
-    .idx { padding: 10px 12px; gap: 8px; }
-    .wrap { padding: 0 16px 64px; }
+    .idx { padding: 0 14px; gap: 8px; }
+    .brand { padding: 0 14px 0 12px; }
+    .brand-word { font-size: 16px; }
+    .wrap { padding: 0 24px 48px; }
   }
 </style>
 </head>
 <body>
 
-<!-- 1. indices -->
-<div class="indices" id="indicesBar"></div>
+<!-- 1. header -->
+<header class="top-bar">
+  <div class="indices-marquee" aria-label="Market predictions ticker">
+    <div class="indices-track" id="indicesTrack"></div>
+  </div>
+  <a class="brand" href="/" aria-label="Kouros home">
+    <span class="brand-word">
+      <span class="brand-k" aria-hidden="true">
+        <svg viewBox="0 0 100 100" focusable="false">
+          <polygon points="20,14 36,14 36,86 20,86"/>
+          <polygon points="36,50 49,50 84,86 67,86"/>
+          <polygon points="36,45 87,8 92,15 41,52"/>
+        </svg>
+      </span><span class="brand-rest">ouros</span>
+    </span>
+  </a>
+</header>
 
 <div class="wrap">
 
-  <!-- 2. search -->
-  <form class="search" id="searchForm">
-    <input id="searchInput" placeholder="Search a ticker, e.g. NVDA" maxlength="6" autocomplete="off" spellcheck="false" aria-label="Ticker symbol">
-    <button type="submit">Predict</button>
-  </form>
+  <!-- 2. search + hero -->
+  <div class="search-zone">
+  <div class="terminal-panel">
+    <div class="terminal-head">
+      <span class="terminal-head-label">Lookup</span>
+      <form class="search" id="searchForm">
+        <input id="searchInput" placeholder="Search a ticker, e.g. NVDA" maxlength="6" autocomplete="off" spellcheck="false" aria-label="Ticker symbol">
+        <button type="submit">Predict</button>
+      </form>
+    </div>
   <p id="searchError">Unknown ticker. Try letters only, like AAPL or MSFT.</p>
 
   <!-- 3. hero -->
@@ -403,24 +743,33 @@
       <div class="px" id="heroPrice">Last close $212.44</div>
     </div>
 
-    <!-- ConfidenceCard: reusable prediction summary, driven by renderConfidenceCard() -->
     <div class="conf-card up" id="confCard">
-      <span class="cc-arrow" aria-hidden="true">
-        <svg class="a-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
-        <svg class="a-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10"/><path d="M17 7v10"/></svg>
-      </span>
-      <div class="cc-word" id="heroWord">Bullish</div>
-      <div class="cc-conf"><span id="heroConf">0.0</span>%</div>
-      <div class="cc-conf-label">Confidence</div>
-      <div class="cc-bar" id="ccBar" role="img" aria-label="Confidence bar">
-        <div class="cc-fill" id="ccFill"></div>
-        <div class="cc-marker" id="ccMarker"></div>
+      <div class="cc-primary">
+        <span class="cc-arrow" aria-hidden="true">
+          <svg class="a-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+          <svg class="a-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10"/><path d="M17 7v10"/></svg>
+        </span>
+        <div>
+          <div class="cc-word" id="heroWord">Bullish</div>
+          <div class="cc-conf-row">
+            <div class="cc-conf"><span id="heroConf">0.0</span>%</div>
+            <div class="cc-conf-label">Confidence</div>
+          </div>
+        </div>
       </div>
-      <div class="cc-pill" id="heroBadge">Reliable Range</div>
-      <div class="cc-divider"></div>
-      <div class="cc-signals">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-        <span id="convNote">3 of 5 Signals Agree</span>
+      <div class="cc-mid">
+        <div class="cc-bar" id="ccBar" role="img" aria-label="Confidence bar">
+          <div class="cc-fill" id="ccFill"></div>
+          <div class="cc-marker" id="ccMarker"></div>
+        </div>
+        <div class="cc-signals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span id="convNote">3 of 5 Signals Agree</span>
+        </div>
+      </div>
+      <div class="cc-side">
+        <div class="cc-pill" id="heroBadge">Reliable Range</div>
+        <div class="cc-extra" id="ccExtra">Next session prediction</div>
       </div>
     </div>
 
@@ -429,6 +778,8 @@
       <div class="date mono" id="heroDate">Mon, Jul 6</div>
     </div>
   </section>
+  </div>
+  </div>
 
   <!-- 4. features -->
   <section>
@@ -494,8 +845,19 @@
 
   <!-- 5. history -->
   <section>
-    <h2>Recent price history</h2>
-    <div class="chartbox"><canvas id="priceChart"></canvas></div>
+    <div class="history-head">
+      <h2>Recent price history</h2>
+      <div class="chart-toggle" role="group" aria-label="Chart type">
+        <button type="button" class="chart-toggle-btn active" id="chartLineBtn" aria-pressed="true">Line</button>
+        <button type="button" class="chart-toggle-btn" id="chartCandleBtn" aria-pressed="false">Candles</button>
+      </div>
+    </div>
+    <div class="chartbox">
+      <canvas id="priceChart"></canvas>
+      <div class="candle-chart" id="priceCandles" aria-hidden="true">
+        <div class="candle-tip" id="candleTip" hidden></div>
+      </div>
+    </div>
     <div class="last5" id="last5"></div>
   </section>
 
@@ -590,7 +952,7 @@ function countUp(el, target, dec = 1) {
 }
 
 /* ---------- ConfidenceCard ---------- */
-function renderConfidenceCard({ direction, confidence, signalsAgree }) {
+function renderConfidenceCard({ direction, confidence, signalsAgree, predictedDate }) {
   $("confCard").className = "conf-card " + direction;
   $("heroWord").textContent = direction === "up" ? "Bullish" : "Bearish";
   countUp($("heroConf"), confidence, 1);
@@ -602,48 +964,268 @@ function renderConfidenceCard({ direction, confidence, signalsAgree }) {
   pill.className = "cc-pill" + (reliable ? "" : " off");
   pill.textContent = reliable ? "Reliable Range" : "Outside Reliable Range";
   $("convNote").textContent = `${signalsAgree} of 5 Signals Agree`;
+  if (predictedDate) {
+    $("ccExtra").textContent = `Next session, ${fmtDate(predictedDate)}, ${direction === "up" ? "up" : "down"} call`;
+  }
 }
 
-/* ---------- indices strip ---------- */
+function idxItem(i) {
+  const arrow = i.direction === "up" ? "&#9650;" : "&#9660;";
+  const sym = i.symbol || i.name.slice(0, 4).toUpperCase();
+  return `<div class="idx">
+    <span class="sym">${sym}</span>
+    <span class="name">${i.name}</span>
+    <span class="dir ${i.direction}">${arrow} ${i.confidence}%</span>
+    <span class="when">${fmtDate(i.predicted_date)}</span>
+  </div>`;
+}
+
+/* ---------- indices marquee ---------- */
 async function loadIndices() {
   const data = await (await fetch("/api/indices")).json();
-  $("indicesBar").innerHTML = data.map(i => `
-    <div class="idx">
-      <span class="name">${i.name}</span>
-      <span class="dir ${i.direction}">${i.direction === "up" ? "&#9650;" : "&#9660;"} ${i.confidence}%</span>
-      <span class="when">${fmtDate(i.predicted_date)}</span>
-    </div>`).join("");
+  const html = data.map(idxItem).join("");
+  $("indicesTrack").innerHTML = html + html;
 }
 
 /* ---------- chart ---------- */
 let chart;
+let chartMode = "line";
+let chartHistory = null;
+
+const chartFonts = {
+  x: { family: "Inter, sans-serif", size: 10, weight: 400 },
+  y: { family: "General Sans, sans-serif", size: 10 },
+};
+
+function ensureOhlc(h) {
+  if (h.ohlc?.length) return h.ohlc;
+  return h.prices.map((c, i) => {
+    const o = i ? h.prices[i - 1] : c;
+    const spread = c * 0.012;
+    return {
+      o,
+      h: Math.max(o, c) + spread * 0.35,
+      l: Math.min(o, c) - spread * 0.35,
+      c,
+    };
+  });
+}
+
+function fmtPrice(v) {
+  return "$" + Number(v).toFixed(2);
+}
+
+function hideCandleTip() {
+  const tip = $("candleTip");
+  tip.hidden = true;
+  tip.classList.remove("visible", "up", "down");
+  $("priceCandles")?.querySelectorAll(".candle-group").forEach(g => g.classList.remove("dim"));
+}
+
+function showCandleTip(i) {
+  const box = $("priceCandles");
+  const meta = box._candleMeta;
+  const tip = $("candleTip");
+  if (!meta || i < 0 || i >= meta.ohlc.length) {
+    hideCandleTip();
+    return;
+  }
+
+  const b = meta.ohlc[i];
+  const up = b.c >= b.o;
+  const dirCls = up ? "up" : "down";
+
+  box.querySelectorAll(".candle-group").forEach((g, j) => {
+    g.classList.toggle("dim", j !== i);
+  });
+
+  tip.classList.remove("up", "down");
+  tip.classList.add(dirCls);
+
+  tip.innerHTML =
+    `<div class="tip-head">` +
+      `<div class="tip-date">${fmtDate(meta.dates[i])}</div>` +
+      `<span class="tip-dir">${up ? "Bullish" : "Bearish"}</span>` +
+    `</div>` +
+    `<dl>` +
+    `<dt>Open</dt><dd>${fmtPrice(b.o)}</dd>` +
+    `<dt>High</dt><dd class="tip-high">${fmtPrice(b.h)}</dd>` +
+    `<dt>Low</dt><dd class="tip-low">${fmtPrice(b.l)}</dd>` +
+    `<dt>Close</dt><dd class="tip-close ${dirCls}">${fmtPrice(b.c)}</dd>` +
+    `</dl>`;
+
+  const cx = meta.pad.l + meta.slot * i + meta.slot / 2;
+  const left = (cx / meta.w) * box.clientWidth;
+  const slotPx = meta.plotW / meta.ohlc.length;
+  tip.style.left = clamp(left, slotPx * 0.5, box.clientWidth - slotPx * 0.5) + "px";
+  tip.style.top = "8px";
+  tip.hidden = false;
+  requestAnimationFrame(() => tip.classList.add("visible"));
+}
+
+function bindCandleHover(box) {
+  if (box._candleBound) return;
+  box._candleBound = true;
+
+  box.addEventListener("mousemove", e => {
+    if (!box._candleMeta) return;
+    const svg = box.querySelector("svg");
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const meta = box._candleMeta;
+    const x = ((e.clientX - rect.left) / rect.width) * meta.w;
+    const i = Math.floor((x - meta.pad.l) / meta.slot);
+    if (i < 0 || i >= meta.ohlc.length) {
+      hideCandleTip();
+      return;
+    }
+    showCandleTip(i);
+  });
+
+  box.addEventListener("mouseleave", hideCandleTip);
+}
+
+function renderCandleChart(h) {
+  const box = $("priceCandles");
+  const tip = $("candleTip");
+  hideCandleTip();
+  const ohlc = ensureOhlc(h);
+  const w = box.clientWidth || 800;
+  const ht = box.clientHeight || 268;
+  const pad = { t: 10, r: 8, b: 26, l: 48 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = ht - pad.t - pad.b;
+  const yMin = Math.min(...ohlc.map(b => b.l));
+  const yMax = Math.max(...ohlc.map(b => b.h));
+  const yPad = (yMax - yMin) * 0.06 || 1;
+  const lo = yMin - yPad;
+  const hi = yMax + yPad;
+  const yScale = v => pad.t + ((hi - v) / (hi - lo)) * plotH;
+  const n = ohlc.length;
+  const slot = plotW / n;
+  const bodyW = Math.max(4, Math.min(11, slot * 0.52));
+  const tickStep = (hi - lo) / 4;
+
+  const grid = Array.from({ length: 5 }, (_, i) => {
+    const v = lo + tickStep * i;
+    const y = yScale(v);
+    return `<line class="grid-line" x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}"/>` +
+      `<text class="axis-label" x="${pad.l - 8}" y="${y + 3}" text-anchor="end">$${v.toFixed(0)}</text>`;
+  }).join("");
+
+  const candles = ohlc.map((b, i) => {
+    const cx = pad.l + slot * i + slot / 2;
+    const up = b.c >= b.o;
+    const cls = up ? "up" : "down";
+    const yHigh = yScale(b.h);
+    const yLow = yScale(b.l);
+    const yOpen = yScale(b.o);
+    const yClose = yScale(b.c);
+    const top = Math.min(yOpen, yClose);
+    const bodyH = Math.max(1.5, Math.abs(yClose - yOpen));
+    return `<g class="candle-group ${cls}" data-i="${i}">` +
+      `<line class="wick" x1="${cx}" y1="${yHigh}" x2="${cx}" y2="${yLow}"/>` +
+      `<rect class="body" x="${(cx - bodyW / 2).toFixed(2)}" y="${top.toFixed(2)}" width="${bodyW}" height="${bodyH.toFixed(2)}"/>` +
+      `</g>`;
+  }).join("");
+
+  const hits = ohlc.map((_, i) =>
+    `<rect class="candle-hit" data-i="${i}" x="${(pad.l + slot * i).toFixed(2)}" y="${pad.t}" width="${slot.toFixed(2)}" height="${plotH.toFixed(2)}"/>`
+  ).join("");
+
+  const xLabels = h.dates.filter((_, i) => i % Math.ceil(n / 7) === 0 || i === n - 1).map(i => {
+    const cx = pad.l + slot * i + slot / 2;
+    const label = fmtDate(h.dates[i]).replace(/^\w+, /, "");
+    return `<text class="axis-label x" x="${cx}" y="${ht - 6}" text-anchor="middle">${label}</text>`;
+  }).join("");
+
+  let svg = box.querySelector("svg");
+  if (!svg) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Candlestick price chart");
+    box.insertBefore(svg, tip);
+  }
+  svg.setAttribute("viewBox", `0 0 ${w} ${ht}`);
+  svg.innerHTML = grid + candles + xLabels + hits;
+
+  box._candleMeta = { ohlc, dates: h.dates, pad, slot, plotW, w, ht };
+  bindCandleHover(box);
+}
+
 function renderChart(h) {
+  chartHistory = h;
   const ctx = $("priceChart");
-  const labels = h.dates.map(d => fmtDate(d).replace(/^\w+, /, ""));
+  const candleBox = $("priceCandles");
   if (chart) chart.destroy();
+
+  if (chartMode === "candle") {
+    ctx.style.display = "none";
+    candleBox.classList.add("active");
+    candleBox.removeAttribute("aria-hidden");
+    requestAnimationFrame(() => renderCandleChart(h));
+    return;
+  }
+
+  ctx.style.display = "block";
+  candleBox.classList.remove("active");
+  candleBox.setAttribute("aria-hidden", "true");
+  hideCandleTip();
+
+  const labels = h.dates.map(d => fmtDate(d).replace(/^\w+, /, ""));
   chart = new Chart(ctx, {
     type: "line",
-    data: { labels, datasets: [{
-      data: h.prices,
-      borderColor: "#2e63d8",
-      borderWidth: 1.25,
-      pointRadius: 0,
-      pointHitRadius: 8,
-      fill: true,
-      backgroundColor: "rgba(46,99,216,.06)",
-      tension: .25,
-    }]},
+    data: {
+      labels,
+      datasets: [{
+        data: h.prices,
+        borderColor: "#2e63d8",
+        borderWidth: 1.25,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        fill: true,
+        backgroundColor: "rgba(46,99,216,.06)",
+        tension: .25,
+      }],
+    },
     options: {
       maintainAspectRatio: false,
       animation: REDUCE ? false : { duration: 600 },
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: { intersect: false } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: "#8b94a7", maxTicksLimit: 8, font: { family: "Inter, sans-serif", size: 10, weight: 400 } } },
-        y: { grid: { color: "#eef1f6" }, ticks: { color: "#8b94a7", font: { family: "IBM Plex Mono, monospace", size: 10 }, callback: v => "$" + v } },
+        x: {
+          grid: { display: false },
+          ticks: { color: "#8b94a7", maxTicksLimit: 8, font: chartFonts.x },
+        },
+        y: {
+          grid: { color: "#eef1f6" },
+          ticks: {
+            color: "#8b94a7",
+            font: chartFonts.y,
+            callback: v => "$" + Number(v).toFixed(2),
+          },
+        },
       },
     },
   });
 }
+
+function setChartMode(mode) {
+  chartMode = mode;
+  $("chartLineBtn").classList.toggle("active", mode === "line");
+  $("chartCandleBtn").classList.toggle("active", mode === "candle");
+  $("chartLineBtn").setAttribute("aria-pressed", mode === "line");
+  $("chartCandleBtn").setAttribute("aria-pressed", mode === "candle");
+  if (chartHistory) renderChart(chartHistory);
+}
+
+$("chartLineBtn").addEventListener("click", () => setChartMode("line"));
+$("chartCandleBtn").addEventListener("click", () => setChartMode("candle"));
+
+window.addEventListener("resize", () => {
+  if (chartMode === "candle" && chartHistory) renderCandleChart(chartHistory);
+});
 
 /* ---------- sparklines ---------- */
 function spark(vals) {
@@ -736,6 +1318,7 @@ function renderPrediction(p) {
     direction: p.direction,
     confidence: p.confidence,
     signalsAgree: countAgreeingSignals(p),
+    predictedDate: p.predicted_date,
   });
   $("heroDate").textContent = fmtDate(p.predicted_date);
 

@@ -1,5 +1,10 @@
-# Mock backend for the prediction dashboard frontend. No real ML.
-# Run: python app.py  ->  http://127.0.0.1:5001
+"""Flask stub backend for the Kouros prediction dashboard.
+
+This module intentionally has zero dependencies on yfinance, joblib, or utils/.
+All API responses are generated locally with seeded random data.
+
+Run: python app.py  ->  http://127.0.0.1:5001
+"""
 import hashlib
 import random
 import re
@@ -9,8 +14,24 @@ from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 
-SECTORS = ["Technology", "Financials", "Energy", "Healthcare",
-           "Consumer", "Industrials", "Utilities"]
+SECTORS = [
+    "Technology", "Financials", "Energy", "Healthcare",
+    "Consumer", "Industrials", "Utilities",
+]
+
+INDEX_DEFS = [
+    ("SPY", "S&P 500"),
+    ("QQQ", "NASDAQ 100"),
+    ("IWM", "Russell 2000"),
+    ("DIA", "Dow Jones"),
+    ("VIX", "VIX"),
+    ("RUT", "Russell 2000 Index"),
+    ("NDX", "NASDAQ Composite"),
+]
+
+
+def _rng(seed: str) -> random.Random:
+    return random.Random(int(hashlib.md5(seed.encode()).hexdigest(), 16))
 
 
 def next_weekday(d):
@@ -26,11 +47,10 @@ def prev_weekdays(d, n):
         d -= timedelta(days=1)
         if d.weekday() < 5:
             out.append(d)
-    return out[::-1]  # oldest first
+    return out[::-1]
 
 
 def trend7(rng, end, step):
-    # 7-day walk ending at today's value, oldest first
     vals = [end]
     for _ in range(6):
         vals.append(vals[-1] + rng.gauss(0, step))
@@ -38,8 +58,8 @@ def trend7(rng, end, step):
 
 
 def mock_prediction(ticker):
-    # ponytail: seeded by ticker so the same symbol always returns the same mock
-    rng = random.Random(int(hashlib.md5(ticker.encode()).hexdigest(), 16))
+    """Deterministic fake prediction payload for one ticker."""
+    rng = _rng(ticker)
     today = date.today()
 
     days = prev_weekdays(today, 60)
@@ -49,12 +69,31 @@ def mock_prediction(ticker):
         price *= 1 + rng.gauss(0.0006, 0.018)
         prices.append(round(price, 2))
 
+    ohlc = []
+    prev = None
+    for close in prices:
+        open_ = prev if prev is not None else close
+        body_hi, body_lo = max(open_, close), min(open_, close)
+        day_range = close * rng.uniform(0.006, 0.022)
+        wick = day_range * rng.uniform(0.25, 0.55)
+        ohlc.append({
+            "o": round(open_, 2),
+            "h": round(body_hi + wick, 2),
+            "l": round(max(0.01, body_lo - wick), 2),
+            "c": close,
+        })
+        prev = close
+
     confidence = round(rng.uniform(50.5, 69.5), 1)
-    last5 = [{"date": d.isoformat(),
-              "call": rng.choice(["up", "down"]),
-              "confidence": round(rng.uniform(51, 68), 1),
-              "hit": rng.random() < 0.58}
-             for d in prev_weekdays(today, 5)]
+    last5 = [
+        {
+            "date": d.isoformat(),
+            "call": rng.choice(["up", "down"]),
+            "confidence": round(rng.uniform(51, 68), 1),
+            "hit": rng.random() < 0.58,
+        }
+        for d in prev_weekdays(today, 5)
+    ]
 
     rsi = round(rng.uniform(22, 82), 1)
     macd = round(rng.uniform(-2.5, 2.5), 2)
@@ -82,11 +121,33 @@ def mock_prediction(ticker):
             "volatility": trend7(rng, vol, 2.5),
             "volume_change": trend7(rng, vc, 20),
         },
-        "history": {"dates": [d.isoformat() for d in days], "prices": prices},
+        "history": {
+            "dates": [d.isoformat() for d in days],
+            "prices": prices,
+            "ohlc": ohlc,
+        },
         "last5": last5,
-        "stock_hit_rate": {"rate": round(rng.uniform(44, 66), 1),
-                           "calls": rng.randint(8, 40)},
+        "stock_hit_rate": {
+            "rate": round(rng.uniform(44, 66), 1),
+            "calls": rng.randint(8, 40),
+        },
     }
+
+
+def mock_indices():
+    """Deterministic fake index/ETF predictions for the header ticker."""
+    predicted_date = next_weekday(date.today()).isoformat()
+    out = []
+    for symbol, name in INDEX_DEFS:
+        rng = _rng(f"index:{symbol}")
+        out.append({
+            "symbol": symbol,
+            "name": name,
+            "direction": rng.choice(["up", "down"]),
+            "confidence": round(rng.uniform(51.5, 64.5), 1),
+            "predicted_date": predicted_date,
+        })
+    return out
 
 
 @app.route("/")
@@ -104,12 +165,7 @@ def predict(ticker):
 
 @app.route("/api/indices")
 def indices():
-    nd = next_weekday(date.today()).isoformat()
-    return jsonify([
-        {"name": "S&P 500", "direction": "up", "confidence": 61.2, "predicted_date": nd},
-        {"name": "Dow", "direction": "down", "confidence": 54.8, "predicted_date": nd},
-        {"name": "NASDAQ", "direction": "up", "confidence": 63.4, "predicted_date": nd},
-    ])
+    return jsonify(mock_indices())
 
 
 if __name__ == "__main__":

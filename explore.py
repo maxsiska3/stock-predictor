@@ -183,14 +183,6 @@ jl.dump(scaler, "model/scaler.pkl")
 # Cross-validated accuracy is around 52%, single-split test accuracy around 57%.
 #
 # OUTPUTS
-# The trained model and scaler are saved to model/ via joblib so the Flask app
-# can load them for live predictions without retraining.
-#
-# FLASK NOTES
-# Import compute_features() and FEATURE_COLS from this file to guarantee the
-# live feature engineering matches exactly what the model was trained on.
-# Pass at least 100 rows of history to compute_features() so the EWM-based
-# MACD values are fully warmed up, then use only the last row for prediction.
-# The gap feature requires today's Open price, so predictions must run after
-# market open.
+# The trained model and scaler are saved to model/ via joblib for offline CLI use
+# (see get_predictions.py). The Flask dashboard uses stub data only (app.py).
 # =============================================================================

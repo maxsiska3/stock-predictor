@@ -9,9 +9,9 @@ FEATURE_COLS = [
 def compute_features(df):
     """Compute all model features for an OHLCV DataFrame. Safe to call on any ticker.
 
-    For live predictions in Flask: pass at least 100 rows of history so EWM-based
+    For live CLI predictions: pass at least 100 rows of history so EWM-based
     features (MACD) are fully warmed up, then use only the last row for prediction.
-    gap requires today's Open price, so predictions must run after market open.
+    gap requires today's Open price, so CLI predictions should run after market open.
     """
     df = df.copy()
 
@@ -22,7 +22,7 @@ def compute_features(df):
     df["high_low_change"] = (df["High"] - df["Low"]) / df["Close"]
     df["gap"] = df["Open"] - df["Close"].shift(1)
 
-    # RSI — uses simple rolling mean (not Wilder's EMA). Flask must replicate this exact formula.
+    # RSI — uses simple rolling mean (not Wilder's EMA). Inference must replicate this exact formula.
     daily_change = df["Close"].diff()
     gains = daily_change.clip(lower=0)
     losses = (-daily_change).clip(lower=0)
