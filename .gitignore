@@ -3,3 +3,11 @@ __pycache__/
 .DS_Store
 venv/
 .env
+
+# Local Cursor / agent tooling (not for public repo)
+.claude/
+skills-lock.json
+
+# Local runtime data
+data/
+*.db
