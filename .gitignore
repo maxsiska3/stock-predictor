@@ -7,6 +7,9 @@ venv/
 # Local Cursor / agent tooling (not for public repo)
 .claude/
 skills-lock.json
+CLAUDE.md
+AGENTS.md
+.cursor/
 
 # Local runtime data
 data/
