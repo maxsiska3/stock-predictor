@@ -4,6 +4,20 @@
 
 This is an experimental ML project, **not financial advice**.
 
+**Learning path:** See [docs/LEARNING_PLAN.md](docs/LEARNING_PLAN.md) for a self-paced guide to stub data, model evaluation, and retraining.
+
+---
+
+## How this was built
+
+The prediction terminal frontend ([`templates/predict.html`](templates/predict.html)) was built with help from **Cursor** and **Claude**, so I could spend my time on the ML and backend work.
+
+What I implemented myself:
+
+- **Flask backend** — stub-data routes in [`app.py`](app.py) that return deterministic fake JSON matching the UI contract, while the real pipeline stays separate for now
+- **Model training** — [`explore.py`](explore.py) and the saved artifacts in [`model/`](model/)
+- **Feature engineering & inference** — [`utils/features.py`](utils/features.py), [`utils/predict.py`](utils/predict.py), and [`get_predictions.py`](get_predictions.py)
+
 ---
 
 ## What it does
