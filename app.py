@@ -1,87 +1,116 @@
-# app.py — local next-day direction predictor
+# Mock backend for the prediction dashboard frontend. No real ML.
+# Run: python app.py  ->  http://127.0.0.1:5001
+import hashlib
+import random
+import re
+from datetime import date, timedelta
 
-import logging
-import os
-
-from flask import Flask, jsonify, render_template, request
-
-from utils.predict import predict_stock
-from utils.watchlist import DEFAULT_WATCHLIST
-from utils.yfinance_setup import configure_yfinance
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-configure_yfinance()
+from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
-logger = logging.getLogger(__name__)
+
+SECTORS = ["Technology", "Financials", "Energy", "Healthcare",
+           "Consumer", "Industrials", "Utilities"]
 
 
-def _parse_tickers(raw):
-    if not raw:
-        return []
-    if isinstance(raw, list):
-        return [str(t).strip().upper() for t in raw if str(t).strip()]
-    return [t.strip().upper() for t in str(raw).split(",") if t.strip()]
+def next_weekday(d):
+    d += timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
 
 
-def _prediction_row(ticker):
-    sym = str(ticker or "").strip().upper()
-    if not sym:
-        return {"ticker": "", "direction": None, "confidence": None, "error": "Ticker required"}
-
-    try:
-        prediction, confidence = predict_stock(sym)
-        direction = int(prediction[0])
-        confidence_pct = round(float(confidence[0].max()) * 100, 2)
-        return {
-            "ticker": sym,
-            "direction": direction,
-            "confidence": confidence_pct,
-            "error": None,
-        }
-    except Exception as exc:
-        logger.warning("Prediction failed for %s: %s", sym, exc)
-        return {"ticker": sym, "direction": None, "confidence": None, "error": str(exc)}
+def prev_weekdays(d, n):
+    out = []
+    while len(out) < n:
+        d -= timedelta(days=1)
+        if d.weekday() < 5:
+            out.append(d)
+    return out[::-1]  # oldest first
 
 
-def _summarize(results):
-    up = sum(1 for r in results if r["direction"] == 1)
-    down = sum(1 for r in results if r["direction"] == 0)
-    failed = sum(1 for r in results if r["error"])
-    return {"up": up, "down": down, "failed": failed, "total": len(results)}
+def trend7(rng, end, step):
+    # 7-day walk ending at today's value, oldest first
+    vals = [end]
+    for _ in range(6):
+        vals.append(vals[-1] + rng.gauss(0, step))
+    return [round(v, 2) for v in reversed(vals)]
+
+
+def mock_prediction(ticker):
+    # ponytail: seeded by ticker so the same symbol always returns the same mock
+    rng = random.Random(int(hashlib.md5(ticker.encode()).hexdigest(), 16))
+    today = date.today()
+
+    days = prev_weekdays(today, 60)
+    price = rng.uniform(18, 480)
+    prices = []
+    for _ in days:
+        price *= 1 + rng.gauss(0.0006, 0.018)
+        prices.append(round(price, 2))
+
+    confidence = round(rng.uniform(50.5, 69.5), 1)
+    last5 = [{"date": d.isoformat(),
+              "call": rng.choice(["up", "down"]),
+              "confidence": round(rng.uniform(51, 68), 1),
+              "hit": rng.random() < 0.58}
+             for d in prev_weekdays(today, 5)]
+
+    rsi = round(rng.uniform(22, 82), 1)
+    macd = round(rng.uniform(-2.5, 2.5), 2)
+    boll = round(rng.uniform(0.05, 0.95), 2)
+    vol = round(rng.uniform(12, 55), 1)
+    vc = round(rng.uniform(-45, 160), 1)
+
+    return {
+        "ticker": ticker,
+        "sector": rng.choice(SECTORS),
+        "direction": rng.choice(["up", "down"]),
+        "confidence": confidence,
+        "predicted_date": next_weekday(today).isoformat(),
+        "features": {
+            "rsi": rsi,
+            "macd": macd,
+            "bollinger": boll,
+            "volatility": vol,
+            "volume_change": vc,
+        },
+        "trends": {
+            "rsi": trend7(rng, rsi, 4),
+            "macd": trend7(rng, macd, 0.35),
+            "bollinger": trend7(rng, boll, 0.09),
+            "volatility": trend7(rng, vol, 2.5),
+            "volume_change": trend7(rng, vc, 20),
+        },
+        "history": {"dates": [d.isoformat() for d in days], "prices": prices},
+        "last5": last5,
+        "stock_hit_rate": {"rate": round(rng.uniform(44, 66), 1),
+                           "calls": rng.randint(8, 40)},
+    }
 
 
 @app.route("/")
 def index():
-    return render_template("index.html", watchlist_count=len(DEFAULT_WATCHLIST))
+    return render_template("predict.html")
 
 
 @app.route("/api/predict/<ticker>")
-def api_predict_one(ticker):
-    return jsonify(_prediction_row(ticker))
+def predict(ticker):
+    ticker = ticker.upper().strip()
+    if not re.fullmatch(r"[A-Z.]{1,6}", ticker):
+        return jsonify({"error": "unknown ticker"}), 404
+    return jsonify(mock_prediction(ticker))
 
 
-@app.route("/api/predictions", methods=["GET", "POST"])
-def api_predictions():
-    if request.method == "POST":
-        body = request.get_json(silent=True) or {}
-        tickers = _parse_tickers(body.get("tickers"))
-    else:
-        tickers = _parse_tickers(request.args.get("tickers"))
-
-    if not tickers:
-        tickers = list(DEFAULT_WATCHLIST)
-
-    results = [_prediction_row(t) for t in tickers]
-    return jsonify({"predictions": results, "summary": _summarize(results)})
+@app.route("/api/indices")
+def indices():
+    nd = next_weekday(date.today()).isoformat()
+    return jsonify([
+        {"name": "S&P 500", "direction": "up", "confidence": 61.2, "predicted_date": nd},
+        {"name": "Dow", "direction": "down", "confidence": 54.8, "predicted_date": nd},
+        {"name": "NASDAQ", "direction": "up", "confidence": 63.4, "predicted_date": nd},
+    ])
 
 
 if __name__ == "__main__":
-    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
-    port = int(os.environ.get("PORT", 5001))
-    print(f"Open http://127.0.0.1:{port}")
-    app.run(debug=debug, port=port)
+    app.run(debug=True, port=5001)

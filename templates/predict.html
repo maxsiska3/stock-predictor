@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prediction Terminal</title>
+<meta name="description" content="Next-day stock direction predictions with model track record.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232e63d8'/%3E%3Cpath d='M8 21l6-7 4 4 6-8' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel2: #f6f8fb;
+    --line: #e4e8ef;
+    --hair: #eef1f6;
+    --text: #1a2233;
+    --dim: #5a6478;
+    --faint: #8b94a7;
+    --blue: #2e63d8;
+    --blue-deep: #2453bc;
+    --blue-soft: rgba(46, 99, 216, .08);
+    --up: #178a52;
+    --up-soft: rgba(23, 138, 82, .09);
+    --down: #d13d4e;
+    --down-soft: rgba(209, 61, 78, .08);
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --sans: "Satoshi", -apple-system, sans-serif;
+    --disp: "Satoshi", var(--sans);
+    --alt: "Inter", -apple-system, sans-serif;
+    --shadow: 0 1px 2px rgba(37, 63, 130, .05), 0 6px 18px rgba(37, 63, 130, .05);
+    --ease: cubic-bezier(.32, .72, 0, 1);
+    --spring: cubic-bezier(.34, 1.2, .5, 1);
+    --r: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 14px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  ::selection { background: var(--blue-soft); }
+
+  /* ---------- 1. indices strip ---------- */
+  .indices {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: center;
+    background: rgba(255, 255, 255, .92);
+    backdrop-filter: blur(10px);
+    border-top: 2px solid var(--blue);
+    border-bottom: 1px solid var(--line);
+  }
+  .idx {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 13px 30px;
+  }
+  .idx + .idx { border-left: 1px solid var(--hair); }
+  .idx .name {
+    font-family: var(--disp);
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .idx .dir { font-family: var(--mono); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .idx .dir.up { color: var(--up); }
+  .idx .dir.down { color: var(--down); }
+  .idx .when { font-family: var(--alt); font-weight: 400; font-size: 11px; color: var(--faint); }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---------- 2. search ---------- */
+  .search { display: flex; gap: 8px; margin: 40px auto 0; max-width: 540px; }
+  .search input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
+  }
+  .search input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .search input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; font-family: var(--sans); }
+  .search button {
+    background: var(--blue);
+    color: #fff;
+    border: 0;
+    border-radius: var(--r);
+    font-family: var(--disp);
+    font-size: 14px; font-weight: 600;
+    letter-spacing: .01em;
+    padding: 0 26px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14);
+    transition: background .25s var(--ease), transform .15s var(--ease);
+  }
+  .search button:hover { background: var(--blue-deep); }
+  .search button:active { transform: scale(.97); }
+  #searchError {
+    display: none;
+    text-align: center;
+    color: var(--down);
+    font-size: 13px;
+    margin-top: 10px;
+  }
+
+  /* ---------- 3. hero: confidence card ---------- */
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 40px;
+    padding: 40px 8px 44px;
+    border-bottom: 1px solid var(--line);
+  }
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(#dbe2ec 1px, transparent 1px);
+    background-size: 16px 16px;
+    -webkit-mask-image: radial-gradient(ellipse 42% 85% at 50% 48%, #000 25%, transparent 72%);
+    mask-image: radial-gradient(ellipse 42% 85% at 50% 48%, #000 25%, transparent 72%);
+    pointer-events: none;
+  }
+  .hero .who .tkr { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
+  .hero .who .sector { color: var(--dim); font-size: 13px; margin-top: 2px; }
+  .hero .who .px { font-family: var(--alt); font-weight: 400; color: var(--dim); font-size: 13.5px; margin-top: 12px; }
+  .hero .who .px .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- ConfidenceCard ---------- */
+  .conf-card {
+    width: 380px; max-width: 100%;
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 20px;
+    padding: 38px 36px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, .05);
+  }
+  .cc-arrow {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 12px;
+  }
+  .conf-card.up .cc-arrow { color: #16A34A; background: rgba(34, 197, 94, .1); }
+  .conf-card.down .cc-arrow { color: #DC2626; background: rgba(220, 38, 38, .08); }
+  .cc-arrow svg { width: 22px; height: 22px; }
+  .conf-card .a-down { display: none; }
+  .conf-card.down .a-up { display: none; }
+  .conf-card.down .a-down { display: block; }
+  .cc-word { font-family: var(--disp); font-size: 34px; font-weight: 700; color: #111827; line-height: 1.15; margin-top: 10px; }
+  .cc-conf { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 58px; font-weight: 700; color: #111827; line-height: 1.05; margin-top: 2px; }
+  .cc-conf-label { font-family: var(--alt); font-size: 18px; font-weight: 500; color: #6B7280; margin-top: 4px; }
+  .cc-bar { position: relative; height: 8px; border-radius: 9999px; background: #E5E7EB; margin: 24px 0 18px; }
+  .cc-fill {
+    position: absolute; left: 0; top: 0; height: 100%; width: 0;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #16A34A, #22C55E);
+    transition: width .6s cubic-bezier(0, 0, .2, 1);
+  }
+  .conf-card.down .cc-fill { background: linear-gradient(90deg, #DC2626, #EF4444); }
+  .cc-marker {
+    position: absolute; top: 50%; left: 0;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; border: 2px solid #16A34A;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, .15);
+    transition: left .6s cubic-bezier(0, 0, .2, 1);
+  }
+  .conf-card.down .cc-marker { border-color: #DC2626; }
+  .cc-pill {
+    display: inline-flex; align-items: center;
+    height: 30px; padding: 0 14px; border-radius: 9999px;
+    font-family: var(--alt); font-size: 13px; font-weight: 500;
+    background: rgba(34, 197, 94, .08);
+    border: 1px solid rgba(34, 197, 94, .15);
+    color: #15803D;
+  }
+  .cc-pill.off { background: #F3F4F6; border-color: #E5E7EB; color: #6B7280; }
+  .cc-divider { height: 1px; background: #E5E7EB; margin: 22px 0 16px; }
+  .cc-signals {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--alt); font-size: 14.5px; font-weight: 500; color: #6B7280;
+  }
+  .cc-signals svg { width: 17px; height: 17px; color: #16A34A; flex: 0 0 auto; }
+  @media (prefers-reduced-motion: no-preference) {
+    .conf-card { animation: cardIn .6s cubic-bezier(0, 0, .2, 1) both; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } }
+  }
+
+  .hero .meta { text-align: right; }
+  .hero .meta .label { font-family: var(--disp); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .hero .meta .date { font-family: var(--alt); font-weight: 500; font-size: 16.5px; margin: 4px 0 0; }
+
+  .wrap { counter-reset: sec; }
+  section > h2 {
+    counter-increment: sec;
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--disp);
+    font-size: 16px; font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--text);
+    margin: 52px 0 18px;
+  }
+  section > h2::before {
+    content: counter(sec, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--blue);
+  }
+  section > h2::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+
+  /* ---------- 4. features ---------- */
+  .features { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .fcard {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 15px 15px 13px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: border-color .35s var(--ease), transform .35s var(--ease), box-shadow .35s var(--ease);
+  }
+  .fcard:hover { border-color: #ccd4e0; transform: translateY(-2px); box-shadow: var(--shadow); }
+  .fhead {
+    display: flex; align-items: center; gap: 8px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--hair);
+  }
+  .fhead .fname {
+    flex: 1;
+    font-family: var(--disp);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .fhead .fval { font-family: var(--mono); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .spark { width: 56px; height: 18px; display: block; flex: 0 0 auto; }
+  .spark polyline { fill: none; stroke: #aeb9cb; stroke-width: 1.5; stroke-linejoin: round; }
+  .spark circle { fill: var(--blue); }
+  .fnote { margin: 0; font-size: 12px; color: var(--faint); line-height: 1.45; text-wrap: pretty; }
+  .gauge { width: 100%; height: auto; }
+  .gauge .track { fill: none; stroke: var(--hair); stroke-width: 6; stroke-linecap: round; }
+  .gauge .fill { fill: none; stroke: var(--blue); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .9s var(--ease); }
+  .gauge .tick { stroke: var(--blue); stroke-opacity: .6; stroke-width: 1.5; }
+  .gauge text { fill: var(--faint); font-family: var(--mono); font-size: 9px; }
+  .bar { position: relative; height: 6px; border-radius: 2px; background: var(--hair); margin: 14px 0 6px; }
+  .bar .fillspan { position: absolute; top: 0; height: 100%; border-radius: 2px; background: var(--blue); transition: width .8s var(--ease), left .8s var(--ease), background .3s; }
+  .bar .marker { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--blue); transition: left .8s var(--spring); }
+  .bar .centerline { position: absolute; left: 50%; top: -3px; width: 1px; height: 12px; background: #c3cad6; }
+  .bar-ends { display: flex; justify-content: space-between; font-family: var(--alt); font-weight: 400; font-size: 10px; letter-spacing: .02em; color: var(--faint); }
+
+  /* ---------- 5. history ---------- */
+  .chartbox { height: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+  .last5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+  .p5 {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 10px 13px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 12px;
+    transition: border-color .35s var(--ease);
+  }
+  .p5:hover { border-color: #ccd4e0; }
+  .p5 .d { font-family: var(--alt); font-weight: 400; color: var(--faint); }
+  .p5 .c.up { color: var(--up); }
+  .p5 .c.down { color: var(--down); }
+  .p5 .r { font-size: 14px; font-weight: 700; }
+  .p5 .r.hit { color: var(--blue); }
+  .p5 .r.miss { color: var(--faint); }
+
+  /* ---------- 6. metrics ---------- */
+  .metrics-track { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    padding: 16px 18px 18px;
+  }
+  .panel h3 {
+    font-family: var(--disp);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .stat-row { display: flex; gap: 26px; }
+  .stat .big { font-family: var(--mono); font-size: 29px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .big small { font-size: 14px; color: var(--dim); font-weight: 400; }
+  .stat .sub { font-size: 11px; color: var(--faint); }
+  .brier { margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: baseline; }
+  .brier .sub { font-size: 11.5px; color: var(--faint); }
+  .brier .big { font-family: var(--mono); font-size: 21px; font-weight: 600; }
+
+  .hbar { display: grid; grid-template-columns: 56px 1fr 52px; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; }
+  .hbar + .hbar { margin-top: 11px; }
+  .hbar .lbl { color: var(--dim); }
+  .hbar .pct { text-align: right; font-variant-numeric: tabular-nums; }
+  .hbar .trk { height: 5px; border-radius: 2px; background: var(--hair); position: relative; overflow: hidden; }
+  .hbar .fl { position: absolute; top: 0; left: 0; height: 100%; background: #aeb7c6; }
+  .hbar.best .fl { background: var(--blue); }
+  .hbar.best .pct, .hbar.best .lbl { color: var(--blue); }
+
+  table.mini { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  table.mini td { padding: 7px 0; border-bottom: 1px solid var(--hair); }
+  table.mini tr:last-child td { border-bottom: 0; }
+  table.mini td:nth-child(2) { text-align: right; color: var(--faint); }
+  table.mini td:last-child { text-align: right; }
+  table.mini td:first-child { cursor: pointer; transition: color .2s; }
+  table.mini td:first-child:hover { color: var(--blue); }
+  table.mini tr.you td { color: var(--blue); }
+
+  .metrics-market { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-top: 10px; }
+  .sector { display: grid; grid-template-columns: 84px 1fr 44px; align-items: center; gap: 10px; font-size: 12px; }
+  .sector + .sector { margin-top: 10px; }
+  .sector .nm { color: var(--dim); }
+  .sector .pc { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .sector .pc.up { color: var(--up); }
+  .sector .pc.down { color: var(--down); }
+  .diverge { position: relative; height: 5px; background: var(--hair); border-radius: 2px; }
+  .diverge::after { content: ""; position: absolute; left: 50%; top: -2px; width: 1px; height: 9px; background: #c3cad6; }
+  .diverge .fl { position: absolute; top: 0; height: 100%; }
+  .diverge .fl.up { left: 50%; background: var(--up); }
+  .diverge .fl.down { right: 50%; background: var(--down); }
+
+  .bullbear-bar {
+    display: flex; height: 26px; border-radius: 4px; overflow: hidden;
+    margin: 16px 0 10px;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  }
+  .bullbear-bar .bull { background: var(--up); color: #fff; display: flex; align-items: center; padding-left: 10px; }
+  .bullbear-bar .bear { background: var(--down); color: #fff; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; }
+  .bullbear-note { font-size: 12px; color: var(--faint); }
+
+  /* miss severity heat strip */
+  .heatstrip { display: flex; flex-wrap: wrap; gap: 3px; margin: 14px 0 12px; }
+  .heatstrip .cell { width: 11px; height: 24px; border-radius: 2px; flex: 0 0 auto; }
+  .heatstrip .cell.hit { background: color-mix(in srgb, var(--blue) calc(28% + var(--sev) * 62%), white); }
+  .heatstrip .cell.miss { background: color-mix(in srgb, #414b5e calc(16% + var(--sev) * 56%), white); }
+  .miss-note { margin-top: 0; font-size: 11.5px; color: var(--faint); }
+
+  .loading { opacity: .45; pointer-events: none; transition: opacity .2s; }
+
+  /* entry reveal, motion-gated */
+  @media (prefers-reduced-motion: no-preference) {
+    section.pre { opacity: 0; transform: translateY(14px); }
+    section.in { opacity: 1; transform: none; transition: opacity .7s var(--ease), transform .7s var(--ease); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+
+  @media (max-width: 900px) {
+    .features { grid-template-columns: repeat(2, 1fr); }
+    .hero { grid-template-columns: 1fr; text-align: center; gap: 20px; padding-top: 28px; }
+    .hero .meta { text-align: center; }
+    .conf-card { margin: 0 auto; width: 100%; padding: 24px; }
+    .cc-word { font-size: 30px; }
+    .cc-conf { font-size: 48px; }
+    .metrics-track, .metrics-market { grid-template-columns: 1fr; }
+    .last5 { grid-template-columns: 1fr; }
+    .idx { padding: 10px 12px; gap: 8px; }
+    .wrap { padding: 0 16px 64px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1. indices -->
+<div class="indices" id="indicesBar"></div>
+
+<div class="wrap">
+
+  <!-- 2. search -->
+  <form class="search" id="searchForm">
+    <input id="searchInput" placeholder="Search a ticker, e.g. NVDA" maxlength="6" autocomplete="off" spellcheck="false" aria-label="Ticker symbol">
+    <button type="submit">Predict</button>
+  </form>
+  <p id="searchError">Unknown ticker. Try letters only, like AAPL or MSFT.</p>
+
+  <!-- 3. hero -->
+  <section class="hero" id="hero">
+    <div class="who">
+      <div class="tkr" id="heroTicker">AAPL</div>
+      <div class="sector" id="heroSector">Technology</div>
+      <div class="px" id="heroPrice">Last close $212.44</div>
+    </div>
+
+    <!-- ConfidenceCard: reusable prediction summary, driven by renderConfidenceCard() -->
+    <div class="conf-card up" id="confCard">
+      <span class="cc-arrow" aria-hidden="true">
+        <svg class="a-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+        <svg class="a-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10"/><path d="M17 7v10"/></svg>
+      </span>
+      <div class="cc-word" id="heroWord">Bullish</div>
+      <div class="cc-conf"><span id="heroConf">0.0</span>%</div>
+      <div class="cc-conf-label">Confidence</div>
+      <div class="cc-bar" id="ccBar" role="img" aria-label="Confidence bar">
+        <div class="cc-fill" id="ccFill"></div>
+        <div class="cc-marker" id="ccMarker"></div>
+      </div>
+      <div class="cc-pill" id="heroBadge">Reliable Range</div>
+      <div class="cc-divider"></div>
+      <div class="cc-signals">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+        <span id="convNote">3 of 5 Signals Agree</span>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div class="label">Prediction for</div>
+      <div class="date mono" id="heroDate">Mon, Jul 6</div>
+    </div>
+  </section>
+
+  <!-- 4. features -->
+  <section>
+    <h2>What is driving this call</h2>
+    <div class="features">
+
+      <div class="fcard">
+        <div class="fhead"><span class="fname">RSI (14)</span><span id="rsiSpark"></span><span class="fval" id="rsiVal">62.4</span></div>
+        <svg class="gauge" viewBox="0 0 120 68">
+          <path class="track" d="M10 60 A50 50 0 0 1 110 60"/>
+          <path class="fill" id="rsiArc" d="M10 60 A50 50 0 0 1 110 60"
+                stroke-dasharray="157.08" stroke-dashoffset="157.08"/>
+          <line class="tick" x1="30.6" y1="19.6" x2="34.1" y2="24.4"/>
+          <line class="tick" x1="89.4" y1="19.6" x2="85.9" y2="24.4"/>
+          <text x="6" y="66">0</text>
+          <text x="24" y="14">30</text>
+          <text x="86" y="14">70</text>
+          <text x="100" y="66">100</text>
+        </svg>
+        <p class="fnote" id="rsiNote">Neutral, not stretched in either direction.</p>
+      </div>
+
+      <div class="fcard">
+        <div class="fhead"><span class="fname">MACD</span><span id="macdSpark"></span><span class="fval" id="macdVal">+1.24</span></div>
+        <div class="bar">
+          <div class="centerline"></div>
+          <div class="fillspan" id="macdFill"></div>
+        </div>
+        <div class="bar-ends"><span>bearish</span><span>bullish</span></div>
+        <p class="fnote" id="macdNote">Positive momentum, buyers in control.</p>
+      </div>
+
+      <div class="fcard">
+        <div class="fhead"><span class="fname">Bollinger pos.</span><span id="bollSpark"></span><span class="fval" id="bollVal">0.71</span></div>
+        <div class="bar">
+          <div class="marker" id="bollMarker"></div>
+        </div>
+        <div class="bar-ends"><span>lower band</span><span>upper band</span></div>
+        <p class="fnote" id="bollNote">Trading in the upper half of its band.</p>
+      </div>
+
+      <div class="fcard">
+        <div class="fhead"><span class="fname">Volatility</span><span id="volSpark"></span><span class="fval" id="volVal">28.6%</span></div>
+        <div class="bar">
+          <div class="fillspan" id="volFill" style="left:0"></div>
+        </div>
+        <div class="bar-ends"><span>calm</span><span>wild</span></div>
+        <p class="fnote" id="volNote">Moderate swings, typical for this name.</p>
+      </div>
+
+      <div class="fcard">
+        <div class="fhead"><span class="fname">Volume chg.</span><span id="vcSpark"></span><span class="fval" id="vcVal">+42%</span></div>
+        <div class="bar">
+          <div class="centerline"></div>
+          <div class="fillspan" id="vcFill"></div>
+        </div>
+        <div class="bar-ends"><span>drying up</span><span>surging</span></div>
+        <p class="fnote" id="vcNote">Volume running above its recent average.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 5. history -->
+  <section>
+    <h2>Recent price history</h2>
+    <div class="chartbox"><canvas id="priceChart"></canvas></div>
+    <div class="last5" id="last5"></div>
+  </section>
+
+  <!-- 6. metrics -->
+  <section>
+    <h2>Model track record</h2>
+    <div class="metrics-track">
+
+      <div class="panel">
+        <h3>Overall hit rate</h3>
+        <div class="stat-row">
+          <div class="stat"><div class="big"><span data-count="58.3">0.0</span><small>%</small></div><div class="sub">last 30 days</div></div>
+          <div class="stat"><div class="big"><span data-count="56.1">0.0</span><small>%</small></div><div class="sub">last 60 days</div></div>
+          <div class="stat"><div class="big"><span data-count="55.4">0.0</span><small>%</small></div><div class="sub">last 90 days</div></div>
+        </div>
+        <div class="brier">
+          <span class="sub">Brier score (lower is better)</span>
+          <span class="big"><span data-count="0.241" data-dec="3">0.000</span></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Hit rate by confidence band</h3>
+        <div class="hbar"><span class="lbl">50-55</span><div class="trk"><div class="fl" style="width:52%"></div></div><span class="pct">51.9%</span></div>
+        <div class="hbar"><span class="lbl">55-60</span><div class="trk"><div class="fl" style="width:58%"></div></div><span class="pct">57.8%</span></div>
+        <div class="hbar best"><span class="lbl">60-65</span><div class="trk"><div class="fl" style="width:61%"></div></div><span class="pct">61.2%</span></div>
+        <div class="hbar"><span class="lbl">65+</span><div class="trk"><div class="fl" style="width:60%"></div></div><span class="pct">59.6%</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>Hit rate by stock</h3>
+        <table class="mini" id="stockTable">
+          <tr data-t="AAPL"><td>AAPL</td><td>13 calls</td><td>61.5%</td></tr>
+          <tr data-t="MSFT"><td>MSFT</td><td>12 calls</td><td>58.3%</td></tr>
+          <tr data-t="NVDA"><td>NVDA</td><td>17 calls</td><td>52.9%</td></tr>
+          <tr data-t="AMZN"><td>AMZN</td><td>9 calls</td><td>55.6%</td></tr>
+          <tr data-t="TSLA"><td>TSLA</td><td>35 calls</td><td>48.6%</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="metrics-market">
+
+      <div class="panel">
+        <h3>Predictions by sector, share bullish</h3>
+        <div class="sector"><span class="nm">Technology</span><div class="diverge"><div class="fl up" style="width:21%"></div></div><span class="pc up">71%</span></div>
+        <div class="sector"><span class="nm">Financials</span><div class="diverge"><div class="fl up" style="width:9%"></div></div><span class="pc up">59%</span></div>
+        <div class="sector"><span class="nm">Healthcare</span><div class="diverge"><div class="fl up" style="width:6%"></div></div><span class="pc up">56%</span></div>
+        <div class="sector"><span class="nm">Industrials</span><div class="diverge"><div class="fl up" style="width:4%"></div></div><span class="pc up">54%</span></div>
+        <div class="sector"><span class="nm">Consumer</span><div class="diverge"><div class="fl down" style="width:7%"></div></div><span class="pc down">43%</span></div>
+        <div class="sector"><span class="nm">Energy</span><div class="diverge"><div class="fl down" style="width:13%"></div></div><span class="pc down">37%</span></div>
+        <div class="sector"><span class="nm">Utilities</span><div class="diverge"><div class="fl down" style="width:5%"></div></div><span class="pc down">45%</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>Aggregate market read</h3>
+        <div class="bullbear-bar">
+          <div class="bull" style="width:58%">58% up</div>
+          <div class="bear" style="width:42%">42% down</div>
+        </div>
+        <p class="bullbear-note">Across 214 tracked stocks, the model leans mildly bullish into the next session.</p>
+
+        <h3 style="margin-top:22px">Form guide, last 60 calls</h3>
+        <div class="heatstrip" id="heatStrip"></div>
+        <p class="miss-note" id="heatNote"></p>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const fmtDate = iso => new Date(iso + "T12:00:00")
+  .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ---------- count-up ---------- */
+function countUp(el, target, dec = 1) {
+  const from = parseFloat(el.textContent) || 0;
+  if (REDUCE || from === target) { el.textContent = target.toFixed(dec); return; }
+  const t0 = performance.now(), dur = 500;
+  (function step(t) {
+    const p = clamp((t - t0) / dur, 0, 1);
+    const e = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = (from + (target - from) * e).toFixed(dec);
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ---------- ConfidenceCard ---------- */
+function renderConfidenceCard({ direction, confidence, signalsAgree }) {
+  $("confCard").className = "conf-card " + direction;
+  $("heroWord").textContent = direction === "up" ? "Bullish" : "Bearish";
+  countUp($("heroConf"), confidence, 1);
+  $("ccFill").style.width = confidence + "%";
+  $("ccMarker").style.left = confidence + "%";
+  $("ccBar").setAttribute("aria-label", `Confidence ${confidence} percent`);
+  const reliable = confidence >= 55 && confidence < 65;
+  const pill = $("heroBadge");
+  pill.className = "cc-pill" + (reliable ? "" : " off");
+  pill.textContent = reliable ? "Reliable Range" : "Outside Reliable Range";
+  $("convNote").textContent = `${signalsAgree} of 5 Signals Agree`;
+}
+
+/* ---------- indices strip ---------- */
+async function loadIndices() {
+  const data = await (await fetch("/api/indices")).json();
+  $("indicesBar").innerHTML = data.map(i => `
+    <div class="idx">
+      <span class="name">${i.name}</span>
+      <span class="dir ${i.direction}">${i.direction === "up" ? "&#9650;" : "&#9660;"} ${i.confidence}%</span>
+      <span class="when">${fmtDate(i.predicted_date)}</span>
+    </div>`).join("");
+}
+
+/* ---------- chart ---------- */
+let chart;
+function renderChart(h) {
+  const ctx = $("priceChart");
+  const labels = h.dates.map(d => fmtDate(d).replace(/^\w+, /, ""));
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets: [{
+      data: h.prices,
+      borderColor: "#2e63d8",
+      borderWidth: 1.25,
+      pointRadius: 0,
+      pointHitRadius: 8,
+      fill: true,
+      backgroundColor: "rgba(46,99,216,.06)",
+      tension: .25,
+    }]},
+    options: {
+      maintainAspectRatio: false,
+      animation: REDUCE ? false : { duration: 600 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: "#8b94a7", maxTicksLimit: 8, font: { family: "Inter, sans-serif", size: 10, weight: 400 } } },
+        y: { grid: { color: "#eef1f6" }, ticks: { color: "#8b94a7", font: { family: "IBM Plex Mono, monospace", size: 10 }, callback: v => "$" + v } },
+      },
+    },
+  });
+}
+
+/* ---------- sparklines ---------- */
+function spark(vals) {
+  if (!vals || vals.length < 2) return "";
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  const pts = vals.map((v, i) =>
+    `${(4 + i * (48 / (vals.length - 1))).toFixed(1)},${(15 - ((v - min) / span) * 12).toFixed(1)}`);
+  const [lx, ly] = pts[pts.length - 1].split(",");
+  return `<svg class="spark" viewBox="0 0 56 18" aria-hidden="true"><polyline points="${pts.join(" ")}"/><circle cx="${lx}" cy="${ly}" r="2"/></svg>`;
+}
+
+/* ---------- signal agreement (same calculation as before) ---------- */
+function countAgreeingSignals(p) {
+  const f = p.features, up = p.direction === "up";
+  return [
+    (f.rsi >= 50) === up,
+    (f.macd >= 0) === up,
+    (f.bollinger >= 0.5) === up,
+    (f.volume_change >= 0) === up,
+    f.volatility < 35,
+  ].filter(Boolean).length;
+}
+
+/* ---------- feature cards ---------- */
+function renderFeatures(f, trends = {}) {
+  // RSI arc, path length 157.08
+  $("rsiVal").textContent = f.rsi.toFixed(1);
+  $("rsiArc").style.strokeDashoffset = (1 - f.rsi / 100) * 157.08;
+  $("rsiNote").textContent =
+    f.rsi > 70 ? "Overbought territory, prone to a pullback." :
+    f.rsi < 30 ? "Oversold territory, prone to a bounce." :
+    "Neutral, not stretched in either direction.";
+
+  // MACD diverging bar, scaled to +-3
+  const m = clamp(f.macd / 3, -1, 1);
+  const mf = $("macdFill");
+  mf.style.width = Math.abs(m) * 50 + "%";
+  mf.style.left = m >= 0 ? "50%" : (50 - Math.abs(m) * 50) + "%";
+  // green/red stay reserved for the direction call; indicator sign reads blue vs gray
+  mf.style.background = m >= 0 ? "var(--blue)" : "var(--faint)";
+  $("macdVal").textContent = (f.macd >= 0 ? "+" : "") + f.macd.toFixed(2);
+  $("macdNote").textContent = f.macd >= 0
+    ? "Positive momentum, buyers in control."
+    : "Negative momentum, sellers in control.";
+
+  // Bollinger marker on 0-1 track
+  $("bollVal").textContent = f.bollinger.toFixed(2);
+  $("bollMarker").style.left = `calc(${f.bollinger * 100}% - 1px)`;
+  $("bollNote").textContent =
+    f.bollinger > 0.8 ? "Pressing against the upper band." :
+    f.bollinger < 0.2 ? "Sitting near the lower band." :
+    f.bollinger >= 0.5 ? "Trading in the upper half of its band." :
+    "Trading in the lower half of its band.";
+
+  // Volatility bar, scaled to 60% annualized
+  $("volVal").textContent = f.volatility.toFixed(1) + "%";
+  $("volFill").style.width = clamp(f.volatility / 60, 0, 1) * 100 + "%";
+  $("volNote").textContent =
+    f.volatility > 40 ? "High volatility, predictions here are less stable." :
+    f.volatility < 20 ? "Low volatility, quiet tape." :
+    "Moderate swings, typical for this name.";
+
+  // Volume change diverging bar, scaled to +-150%
+  const v = clamp(f.volume_change / 150, -1, 1);
+  const vf = $("vcFill");
+  vf.style.width = Math.abs(v) * 50 + "%";
+  vf.style.left = v >= 0 ? "50%" : (50 - Math.abs(v) * 50) + "%";
+  vf.style.background = v >= 0 ? "var(--blue)" : "var(--faint)";
+  $("vcVal").textContent = (f.volume_change >= 0 ? "+" : "") + f.volume_change.toFixed(0) + "%";
+  $("vcNote").textContent =
+    f.volume_change > 75 ? "Unusually heavy volume, something is moving this name." :
+    f.volume_change < -25 ? "Volume drying up, low conviction tape." :
+    "Volume near its recent average.";
+
+  // 7-day sparklines
+  $("rsiSpark").innerHTML = spark(trends.rsi);
+  $("macdSpark").innerHTML = spark(trends.macd);
+  $("bollSpark").innerHTML = spark(trends.bollinger);
+  $("volSpark").innerHTML = spark(trends.volatility);
+  $("vcSpark").innerHTML = spark(trends.volume_change);
+}
+
+/* ---------- hero + last5 + stock table ---------- */
+function renderPrediction(p) {
+  $("heroTicker").textContent = p.ticker;
+  $("heroSector").textContent = p.sector;
+  $("heroPrice").innerHTML = 'Last close $<span class="mono" id="heroPriceNum">0.00</span>';
+  countUp($("heroPriceNum"), p.history.prices.at(-1), 2);
+  renderConfidenceCard({
+    direction: p.direction,
+    confidence: p.confidence,
+    signalsAgree: countAgreeingSignals(p),
+  });
+  $("heroDate").textContent = fmtDate(p.predicted_date);
+
+  $("last5").innerHTML = p.last5.map(x => `
+    <div class="p5">
+      <span class="d">${fmtDate(x.date).replace(/^\w+, /, "")}</span>
+      <span class="c ${x.call}">${x.call === "up" ? "&#9650;" : "&#9660;"} ${x.confidence}%</span>
+      <span class="r ${x.hit ? "hit" : "miss"}">${x.hit ? "&#10003;" : "&#10005;"}</span>
+    </div>`).join("");
+
+  // highlight or append this stock in the hit-rate table
+  const table = $("stockTable");
+  table.querySelectorAll("tr").forEach(r => r.classList.remove("you"));
+  let row = table.querySelector(`tr[data-t="${p.ticker}"]`);
+  if (!row) {
+    row = table.insertRow();
+    row.dataset.t = p.ticker;
+    row.innerHTML = `<td>${p.ticker}</td><td>${p.stock_hit_rate.calls} calls</td><td>${p.stock_hit_rate.rate}%</td>`;
+  }
+  row.classList.add("you");
+}
+
+/* ---------- miss severity heat strip (static track record) ---------- */
+(function heatStrip() {
+  let s = 1287;
+  const rnd = () => (s = s * 16807 % 2147483647) / 2147483647;
+  let hits = 0;
+  const cells = [];
+  for (let i = 0; i < 60; i++) {
+    const hit = rnd() < 0.58, sev = rnd();
+    if (hit) hits++;
+    const move = (0.2 + sev * 3.4).toFixed(1);
+    cells.push(`<span class="cell ${hit ? "hit" : "miss"}" style="--sev:${sev.toFixed(2)}" title="${hit ? "Correct" : "Missed"}, ${move}% move"></span>`);
+  }
+  $("heatStrip").innerHTML = cells.join("");
+  $("heatNote").textContent =
+    `${hits} of 60 calls correct, oldest to newest. Blue is a correct call, gray a miss; darker means the market moved more.`;
+})();
+
+/* ---------- load flow ---------- */
+const sections = document.querySelectorAll("section");
+async function loadTicker(t) {
+  $("searchError").style.display = "none";
+  sections.forEach(s => s.classList.add("loading"));
+  try {
+    const res = await fetch("/api/predict/" + encodeURIComponent(t));
+    if (!res.ok) throw new Error();
+    const p = await res.json();
+    renderPrediction(p);
+    renderFeatures(p.features, p.trends);
+    renderChart(p.history);
+  } catch {
+    $("searchError").style.display = "block";
+  } finally {
+    sections.forEach(s => s.classList.remove("loading"));
+  }
+}
+
+$("searchForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const t = $("searchInput").value.trim().toUpperCase();
+  if (t) loadTicker(t);
+});
+
+$("stockTable").addEventListener("click", e => {
+  const t = e.target.closest("tr")?.dataset.t;
+  if (t && e.target.cellIndex === 0) { $("searchInput").value = t; loadTicker(t); }
+});
+
+/* entry reveal + metric count-up on first view */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if (!en.isIntersecting) return;
+    en.target.classList.add("in");
+    en.target.querySelectorAll("[data-count]").forEach(el => {
+      countUp(el, parseFloat(el.dataset.count), parseInt(el.dataset.dec || "1", 10));
+      delete el.dataset.count;
+    });
+    io.unobserve(en.target);
+  });
+}, { threshold: .15 });
+sections.forEach(s => { if (!REDUCE) s.classList.add("pre"); io.observe(s); });
+
+loadIndices();
+loadTicker("AAPL");
+</script>
+</body>
+</html>
