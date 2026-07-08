@@ -44,3 +44,16 @@ def get_yf_session():
         _session = False
 
     return _session or None
+
+
+def reset_yf_session():
+    """Drop the cached session so the next get_yf_session() call builds a fresh one.
+
+    A burst of requests (e.g. scanning the whole watchlist) can get Yahoo to start
+    rejecting every request made through one session's cookies, even ones for
+    tickers that would otherwise succeed. Once that happens the poisoned session
+    never recovers on its own, but a brand-new session (fresh cookies) works
+    immediately — so this is the recovery path callers use after a failed fetch.
+    """
+    global _session
+    _session = None

@@ -1,13 +1,13 @@
 """Flask backend for the Kouros prediction dashboard.
 
-Real data: sector, history, direction, confidence, features, trends (utils/dashboard.py).
-Stub data: last5, hit rate, indices.
+Everything is real: sector, history, direction, confidence, features, trends,
+last5, hit rate, indices, and the watchlist-wide market stats
+(utils/dashboard.py). No stub data paths remain.
 
 Run: python app.py  ->  http://127.0.0.1:5001
 """
-import hashlib
-import random
 import re
+import threading
 from datetime import date, timedelta
 
 from flask import Flask, jsonify, render_template
@@ -15,8 +15,11 @@ from utils.dashboard import (
     download_ohlcv,
     fetch_features_and_trends,
     fetch_history,
+    fetch_performance,
     fetch_prediction,
     fetch_sector,
+    get_index_predictions,
+    get_market_stats,
 )
 
 app = Flask(__name__)
@@ -26,14 +29,10 @@ INDEX_DEFS = [
     ("QQQ", "NASDAQ 100"),
     ("IWM", "Russell 2000"),
     ("DIA", "Dow Jones"),
-    ("VIX", "VIX"),
-    ("RUT", "Russell 2000 Index"),
-    ("NDX", "NASDAQ Composite"),
+    ("^VIX", "VIX"),
+    ("^RUT", "Russell 2000 Index"),
+    ("^NDX", "NASDAQ 100 Index"),
 ]
-
-
-def _rng(seed: str) -> random.Random:
-    return random.Random(int(hashlib.md5(seed.encode()).hexdigest(), 16))
 
 
 def next_weekday(d):
@@ -43,34 +42,15 @@ def next_weekday(d):
     return d
 
 
-def prev_weekdays(d, n):
-    out = []
-    while len(out) < n:
-        d -= timedelta(days=1)
-        if d.weekday() < 5:
-            out.append(d)
-    return out[::-1]
-
-
-def mock_prediction(ticker):
-    """Prediction payload — real data except last5, hit rate."""
-    rng = _rng(ticker)
+def build_prediction(ticker):
+    """Prediction payload built entirely from real market data and the saved model."""
     today = date.today()
 
     raw_df = download_ohlcv(ticker)
     history = fetch_history(ticker, raw_df=raw_df)
     direction, confidence = fetch_prediction(ticker, history_df=raw_df)
     features, trends = fetch_features_and_trends(raw_df)
-
-    last5 = [
-        {
-            "date": d.isoformat(),
-            "call": rng.choice(["up", "down"]),
-            "confidence": round(rng.uniform(51, 68), 1),
-            "hit": rng.random() < 0.58,
-        }
-        for d in prev_weekdays(today, 5)
-    ]
+    last5, stock_hit_rate = fetch_performance(raw_df)
 
     return {
         "ticker": ticker,
@@ -82,26 +62,16 @@ def mock_prediction(ticker):
         "trends": trends,
         "history": history,
         "last5": last5,
-        "stock_hit_rate": {
-            "rate": round(rng.uniform(44, 66), 1),
-            "calls": rng.randint(8, 40),
-        },
+        "stock_hit_rate": stock_hit_rate,
     }
 
 
-def mock_indices():
-    """Deterministic fake index/ETF predictions for the header ticker."""
+def build_indices():
+    """Real index/ETF predictions for the header marquee (cached, see get_index_predictions)."""
     predicted_date = next_weekday(date.today()).isoformat()
-    out = []
-    for symbol, name in INDEX_DEFS:
-        rng = _rng(f"index:{symbol}")
-        out.append({
-            "symbol": symbol,
-            "name": name,
-            "direction": rng.choice(["up", "down"]),
-            "confidence": round(rng.uniform(51.5, 64.5), 1),
-            "predicted_date": predicted_date,
-        })
+    out = get_index_predictions(INDEX_DEFS)
+    for row in out:
+        row["predicted_date"] = predicted_date
     return out
 
 
@@ -115,13 +85,34 @@ def predict(ticker):
     ticker = ticker.upper().strip()
     if not re.fullmatch(r"[A-Z.]{1,6}", ticker):
         return jsonify({"error": "unknown ticker"}), 404
-    return jsonify(mock_prediction(ticker))
+    return jsonify(build_prediction(ticker))
 
 
 @app.route("/api/indices")
 def indices():
-    return jsonify(mock_indices())
+    return jsonify(build_indices())
+
+
+@app.route("/api/market-stats")
+def market_stats():
+    """Watchlist-wide backtest aggregate for the 'Model track record' section.
+    Cached in utils/dashboard.py; a cold cache backtests ~50 tickers and can
+    take tens of seconds, so the frontend fetches this separately and fills
+    the panels in once it resolves rather than blocking page load."""
+    stats = get_market_stats()
+    if stats is None:
+        return jsonify({"error": "market stats unavailable"}), 503
+    return jsonify(stats)
+
+
+def _warm_market_stats_cache():
+    """Pre-compute watchlist stats so the first browser load isn't a 30s cold wait."""
+    try:
+        get_market_stats()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
+    threading.Thread(target=_warm_market_stats_cache, daemon=True).start()
     app.run(debug=True, port=5001)

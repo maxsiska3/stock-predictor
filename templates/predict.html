@@ -313,6 +313,15 @@
     transition: width .6s cubic-bezier(0, 0, .2, 1);
   }
   .conf-card.down .cc-fill { background: linear-gradient(90deg, #DC2626, #EF4444); }
+  .conf-card.conflict .cc-arrow { color: #B45309; background: rgba(245, 158, 11, .12); }
+  .conf-card.conflict .cc-fill { background: linear-gradient(90deg, #D97706, #F59E0B); }
+  .conf-card.conflict .cc-marker { border-color: #D97706; }
+  .conf-card.conflict .cc-pill {
+    background: rgba(245, 158, 11, .08);
+    border-color: rgba(245, 158, 11, .2);
+    color: #B45309;
+  }
+  .conf-card.conflict .cc-signals svg { color: #D97706; }
   .cc-marker {
     position: absolute; top: 50%; left: 0;
     width: 14px; height: 14px; border-radius: 50%;
@@ -764,7 +773,7 @@
         </div>
         <div class="cc-signals">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-          <span id="convNote">3 of 5 Signals Agree</span>
+          <span id="convNote">3 of 4 Signals Agree</span>
         </div>
       </div>
       <div class="cc-side">
@@ -869,33 +878,29 @@
       <div class="panel">
         <h3>Overall hit rate</h3>
         <div class="stat-row">
-          <div class="stat"><div class="big"><span data-count="58.3">0.0</span><small>%</small></div><div class="sub">last 30 days</div></div>
-          <div class="stat"><div class="big"><span data-count="56.1">0.0</span><small>%</small></div><div class="sub">last 60 days</div></div>
-          <div class="stat"><div class="big"><span data-count="55.4">0.0</span><small>%</small></div><div class="sub">last 90 days</div></div>
+          <div class="stat"><div class="big"><span id="hitRate30">--</span><small>%</small></div><div class="sub">last 30 days</div></div>
+          <div class="stat"><div class="big"><span id="hitRate60">--</span><small>%</small></div><div class="sub">last 60 days</div></div>
+          <div class="stat"><div class="big"><span id="hitRate90">--</span><small>%</small></div><div class="sub">last 90 days</div></div>
         </div>
         <div class="brier">
           <span class="sub">Brier score (lower is better)</span>
-          <span class="big"><span data-count="0.241" data-dec="3">0.000</span></span>
+          <span class="big"><span id="brierScore">--</span></span>
         </div>
       </div>
 
       <div class="panel">
         <h3>Hit rate by confidence band</h3>
-        <div class="hbar"><span class="lbl">50-55</span><div class="trk"><div class="fl" style="width:52%"></div></div><span class="pct">51.9%</span></div>
-        <div class="hbar"><span class="lbl">55-60</span><div class="trk"><div class="fl" style="width:58%"></div></div><span class="pct">57.8%</span></div>
-        <div class="hbar best"><span class="lbl">60-65</span><div class="trk"><div class="fl" style="width:61%"></div></div><span class="pct">61.2%</span></div>
-        <div class="hbar"><span class="lbl">65+</span><div class="trk"><div class="fl" style="width:60%"></div></div><span class="pct">59.6%</span></div>
+        <div id="confidenceBands">
+          <div class="hbar"><span class="lbl">50-55</span><div class="trk"><div class="fl"></div></div><span class="pct">--</span></div>
+          <div class="hbar"><span class="lbl">55-60</span><div class="trk"><div class="fl"></div></div><span class="pct">--</span></div>
+          <div class="hbar"><span class="lbl">60-65</span><div class="trk"><div class="fl"></div></div><span class="pct">--</span></div>
+          <div class="hbar"><span class="lbl">65+</span><div class="trk"><div class="fl"></div></div><span class="pct">--</span></div>
+        </div>
       </div>
 
       <div class="panel">
         <h3>Hit rate by stock</h3>
-        <table class="mini" id="stockTable">
-          <tr data-t="AAPL"><td>AAPL</td><td>13 calls</td><td>61.5%</td></tr>
-          <tr data-t="MSFT"><td>MSFT</td><td>12 calls</td><td>58.3%</td></tr>
-          <tr data-t="NVDA"><td>NVDA</td><td>17 calls</td><td>52.9%</td></tr>
-          <tr data-t="AMZN"><td>AMZN</td><td>9 calls</td><td>55.6%</td></tr>
-          <tr data-t="TSLA"><td>TSLA</td><td>35 calls</td><td>48.6%</td></tr>
-        </table>
+        <table class="mini" id="stockTable"></table>
       </div>
 
     </div>
@@ -904,22 +909,16 @@
 
       <div class="panel">
         <h3>Predictions by sector, share bullish</h3>
-        <div class="sector"><span class="nm">Technology</span><div class="diverge"><div class="fl up" style="width:21%"></div></div><span class="pc up">71%</span></div>
-        <div class="sector"><span class="nm">Financials</span><div class="diverge"><div class="fl up" style="width:9%"></div></div><span class="pc up">59%</span></div>
-        <div class="sector"><span class="nm">Healthcare</span><div class="diverge"><div class="fl up" style="width:6%"></div></div><span class="pc up">56%</span></div>
-        <div class="sector"><span class="nm">Industrials</span><div class="diverge"><div class="fl up" style="width:4%"></div></div><span class="pc up">54%</span></div>
-        <div class="sector"><span class="nm">Consumer</span><div class="diverge"><div class="fl down" style="width:7%"></div></div><span class="pc down">43%</span></div>
-        <div class="sector"><span class="nm">Energy</span><div class="diverge"><div class="fl down" style="width:13%"></div></div><span class="pc down">37%</span></div>
-        <div class="sector"><span class="nm">Utilities</span><div class="diverge"><div class="fl down" style="width:5%"></div></div><span class="pc down">45%</span></div>
+        <div id="sectorList"></div>
       </div>
 
       <div class="panel">
         <h3>Aggregate market read</h3>
         <div class="bullbear-bar">
-          <div class="bull" style="width:58%">58% up</div>
-          <div class="bear" style="width:42%">42% down</div>
+          <div class="bull" id="bullBar" style="width:50%">-- up</div>
+          <div class="bear" id="bearBar" style="width:50%">-- down</div>
         </div>
-        <p class="bullbear-note">Across 214 tracked stocks, the model leans mildly bullish into the next session.</p>
+        <p class="bullbear-note" id="marketReadNote">Loading watchlist-wide backtest…</p>
 
         <h3 style="margin-top:22px">Form guide, last 60 calls</h3>
         <div class="heatstrip" id="heatStrip"></div>
@@ -953,19 +952,25 @@ function countUp(el, target, dec = 1) {
 
 /* ---------- ConfidenceCard ---------- */
 function renderConfidenceCard({ direction, confidence, signalsAgree, predictedDate }) {
-  $("confCard").className = "conf-card " + direction;
+  const conflict = signalsAgree === 0;
+  $("confCard").className = "conf-card " + (conflict ? "conflict" : direction);
   $("heroWord").textContent = direction === "up" ? "Bullish" : "Bearish";
   countUp($("heroConf"), confidence, 1);
   $("ccFill").style.width = confidence + "%";
   $("ccMarker").style.left = confidence + "%";
   $("ccBar").setAttribute("aria-label", `Confidence ${confidence} percent`);
-  const reliable = confidence >= 55 && confidence < 65;
+  const reliable = !conflict && confidence >= 55 && confidence < 65;
   const pill = $("heroBadge");
   pill.className = "cc-pill" + (reliable ? "" : " off");
-  pill.textContent = reliable ? "Reliable Range" : "Outside Reliable Range";
-  $("convNote").textContent = `${signalsAgree} of 5 Signals Agree`;
+  pill.textContent = conflict
+    ? "Indicators Disagree"
+    : reliable ? "Reliable Range" : "Outside Reliable Range";
+  $("convNote").textContent = `${signalsAgree} of 4 Signals Agree`;
   if (predictedDate) {
-    $("ccExtra").textContent = `Next session, ${fmtDate(predictedDate)}, ${direction === "up" ? "up" : "down"} call`;
+    const call = direction === "up" ? "up" : "down";
+    $("ccExtra").textContent = conflict
+      ? `Model ${call} call, but none of the 4 visible indicators agree`
+      : `Next session, ${fmtDate(predictedDate)}, ${call} call`;
   }
 }
 
@@ -1237,15 +1242,16 @@ function spark(vals) {
   return `<svg class="spark" viewBox="0 0 56 18" aria-hidden="true"><polyline points="${pts.join(" ")}"/><circle cx="${lx}" cy="${ly}" r="2"/></svg>`;
 }
 
-/* ---------- signal agreement (same calculation as before) ---------- */
+/* ---------- signal agreement (4 directional indicators; vol is separate) ---------- */
 function countAgreeingSignals(p) {
-  const f = p.features, up = p.direction === "up";
+  const f = p?.features;
+  if (!f) return 0;
+  const up = p.direction === "up";
   return [
     (f.rsi >= 50) === up,
     (f.macd >= 0) === up,
     (f.bollinger >= 0.5) === up,
     (f.volume_change >= 0) === up,
-    f.volatility < 35,
   ].filter(Boolean).length;
 }
 
@@ -1309,7 +1315,30 @@ function renderFeatures(f, trends = {}) {
 }
 
 /* ---------- hero + last5 + stock table ---------- */
+let currentTicker = null;
+let lastStockHitRate = null;
+
+function ensureStockRow(ticker, calls, rate) {
+  const table = $("stockTable");
+  let row = table.querySelector(`tr[data-t="${ticker}"]`);
+  if (!row) {
+    row = table.insertRow();
+    row.dataset.t = ticker;
+    row.innerHTML = `<td>${ticker}</td><td>${calls} calls</td><td>${rate}%</td>`;
+  }
+  return row;
+}
+
+function highlightCurrentStockRow() {
+  $("stockTable").querySelectorAll("tr").forEach(r => r.classList.remove("you"));
+  if (!currentTicker) return;
+  const row = $("stockTable").querySelector(`tr[data-t="${currentTicker}"]`);
+  if (row) row.classList.add("you");
+}
+
 function renderPrediction(p) {
+  currentTicker = p.ticker;
+  lastStockHitRate = p.stock_hit_rate || null;
   $("heroTicker").textContent = p.ticker;
   $("heroSector").textContent = p.sector;
   $("heroPrice").innerHTML = 'Last close $<span class="mono" id="heroPriceNum">0.00</span>';
@@ -1322,7 +1351,7 @@ function renderPrediction(p) {
   });
   $("heroDate").textContent = fmtDate(p.predicted_date);
 
-  $("last5").innerHTML = p.last5.map(x => `
+  $("last5").innerHTML = (p.last5 || []).map(x => `
     <div class="p5">
       <span class="d">${fmtDate(x.date).replace(/^\w+, /, "")}</span>
       <span class="c ${x.call}">${x.call === "up" ? "&#9650;" : "&#9660;"} ${x.confidence}%</span>
@@ -1330,33 +1359,92 @@ function renderPrediction(p) {
     </div>`).join("");
 
   // highlight or append this stock in the hit-rate table
-  const table = $("stockTable");
-  table.querySelectorAll("tr").forEach(r => r.classList.remove("you"));
-  let row = table.querySelector(`tr[data-t="${p.ticker}"]`);
-  if (!row) {
-    row = table.insertRow();
-    row.dataset.t = p.ticker;
-    row.innerHTML = `<td>${p.ticker}</td><td>${p.stock_hit_rate.calls} calls</td><td>${p.stock_hit_rate.rate}%</td>`;
+  if (p.stock_hit_rate) {
+    ensureStockRow(p.ticker, p.stock_hit_rate.calls, p.stock_hit_rate.rate);
   }
-  row.classList.add("you");
+  highlightCurrentStockRow();
+
+  renderHeatStrip(p.stock_hit_rate && p.stock_hit_rate.history);
 }
 
-/* ---------- miss severity heat strip (static track record) ---------- */
-(function heatStrip() {
-  let s = 1287;
-  const rnd = () => (s = s * 16807 % 2147483647) / 2147483647;
-  let hits = 0;
-  const cells = [];
-  for (let i = 0; i < 60; i++) {
-    const hit = rnd() < 0.58, sev = rnd();
-    if (hit) hits++;
-    const move = (0.2 + sev * 3.4).toFixed(1);
-    cells.push(`<span class="cell ${hit ? "hit" : "miss"}" style="--sev:${sev.toFixed(2)}" title="${hit ? "Correct" : "Missed"}, ${move}% move"></span>`);
+/* ---------- watchlist-wide market stats (real backtest aggregate) ---------- */
+function renderMarketStats(stats) {
+  countUp($("hitRate30"), stats.hit_rate_windows["30"] ?? 0, 1);
+  countUp($("hitRate60"), stats.hit_rate_windows["60"] ?? 0, 1);
+  countUp($("hitRate90"), stats.hit_rate_windows["90"] ?? 0, 1);
+  countUp($("brierScore"), stats.brier_score, 3);
+
+  const bands = stats.confidence_bands;
+  const best = Math.max(...bands.map(b => b.rate ?? -1));
+  $("confidenceBands").querySelectorAll(".hbar").forEach((row, i) => {
+    const b = bands[i];
+    if (!b) return;
+    row.classList.toggle("best", b.rate === best && b.count > 0);
+    row.querySelector(".fl").style.width = (b.rate ?? 0) + "%";
+    row.querySelector(".pct").textContent = b.rate != null ? `${b.rate}%` : "n/a";
+  });
+
+  $("sectorList").innerHTML = stats.sectors.map(s => {
+    const dir = s.pct_bullish >= 50 ? "up" : "down";
+    const width = Math.abs(s.pct_bullish - 50);
+    return `<div class="sector">
+      <span class="nm">${s.name}</span>
+      <div class="diverge"><div class="fl ${dir}" style="width:${width}%"></div></div>
+      <span class="pc ${dir}">${s.pct_bullish}%</span>
+    </div>`;
+  }).join("");
+
+  $("bullBar").style.width = stats.market_read.pct_up + "%";
+  $("bullBar").textContent = `${stats.market_read.pct_up}% up`;
+  $("bearBar").style.width = stats.market_read.pct_down + "%";
+  $("bearBar").textContent = `${stats.market_read.pct_down}% down`;
+  const lean = stats.market_read.pct_up >= 55 ? "bullish" : stats.market_read.pct_up <= 45 ? "bearish" : "mixed, no clear lean";
+  $("marketReadNote").textContent =
+    `Across ${stats.market_read.tracked} tracked stocks, the model leans ${lean} into the next session.`;
+
+  const table = $("stockTable");
+  table.innerHTML = stats.stocks.map(s => `<tr data-t="${s.ticker}"><td>${s.ticker}</td><td>${s.calls} calls</td><td>${s.rate}%</td></tr>`).join("");
+  if (currentTicker && lastStockHitRate && !table.querySelector(`tr[data-t="${currentTicker}"]`)) {
+    ensureStockRow(currentTicker, lastStockHitRate.calls, lastStockHitRate.rate);
   }
+  highlightCurrentStockRow();
+}
+
+async function loadMarketStats(retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch("/api/market-stats");
+      if (!res.ok) throw new Error();
+      renderMarketStats(await res.json());
+      return;
+    } catch {
+      if (attempt < retries) {
+        $("marketReadNote").textContent = "Computing watchlist-wide backtest…";
+        await new Promise(r => setTimeout(r, 4000));
+      }
+    }
+  }
+  $("marketReadNote").textContent = "Watchlist-wide stats unavailable right now — per-ticker data above is still live.";
+}
+
+/* ---------- miss severity heat strip (per-ticker walk-forward backtest) ---------- */
+const MAX_HEAT_MOVE = 4; // % move that maxes out cell darkness
+function renderHeatStrip(history) {
+  if (!history || !history.length) {
+    $("heatStrip").innerHTML = "";
+    $("heatNote").textContent = "No backtest history available for this ticker.";
+    return;
+  }
+  let hits = 0;
+  const cells = history.map(({ hit, move }) => {
+    if (hit) hits++;
+    const sev = clamp(move / MAX_HEAT_MOVE, 0, 1);
+    return `<span class="cell ${hit ? "hit" : "miss"}" style="--sev:${sev.toFixed(2)}" title="${hit ? "Correct" : "Missed"}, ${move}% move"></span>`;
+  });
   $("heatStrip").innerHTML = cells.join("");
   $("heatNote").textContent =
-    `${hits} of 60 calls correct, oldest to newest. Blue is a correct call, gray a miss; darker means the market moved more.`;
-})();
+    `${hits} of ${history.length} calls correct, oldest to newest. Blue is a correct call, gray a miss; darker means the market moved more.`;
+}
 
 /* ---------- load flow ---------- */
 const sections = document.querySelectorAll("section");
@@ -1402,8 +1490,11 @@ const io = new IntersectionObserver(entries => {
 }, { threshold: .15 });
 sections.forEach(s => { if (!REDUCE) s.classList.add("pre"); io.observe(s); });
 
-loadIndices();
-loadTicker("AAPL");
+(async function init() {
+  await loadTicker("AAPL");          // one yfinance download first
+  loadIndices();                     // then header indices (cached server-side)
+  loadMarketStats();                 // heavy watchlist backtest last
+})();
 </script>
 </body>
 </html>
