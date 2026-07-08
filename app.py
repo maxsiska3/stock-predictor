@@ -1,7 +1,7 @@
 """Flask backend for the Kouros prediction dashboard.
 
-Real data: sector and price history (via utils/dashboard.py).
-Stub data: direction, confidence, features, trends, last5, hit rate, indices.
+Real data: sector, price history, direction, confidence (via utils/dashboard.py).
+Stub data: features, trends, last5, hit rate, indices.
 
 Run: python app.py  ->  http://127.0.0.1:5001
 """
@@ -11,7 +11,12 @@ import re
 from datetime import date, timedelta
 
 from flask import Flask, jsonify, render_template
-from utils.dashboard import fetch_sector, fetch_history
+from utils.dashboard import (
+    download_ohlcv,
+    fetch_history,
+    fetch_prediction,
+    fetch_sector,
+)
 
 app = Flask(__name__)
 
@@ -54,11 +59,14 @@ def trend7(rng, end, step):
 
 
 def mock_prediction(ticker):
-    """Prediction payload — real sector/history, stub fields until later steps."""
+    """Prediction payload — real sector/history/direction/confidence; stub rest."""
     rng = _rng(ticker)
     today = date.today()
 
-    confidence = round(rng.uniform(50.5, 69.5), 1)
+    raw_df = download_ohlcv(ticker)
+    history = fetch_history(ticker, raw_df=raw_df)
+    direction, confidence = fetch_prediction(ticker, history_df=raw_df)
+
     last5 = [
         {
             "date": d.isoformat(),
@@ -78,7 +86,7 @@ def mock_prediction(ticker):
     return {
         "ticker": ticker,
         "sector": fetch_sector(ticker),
-        "direction": rng.choice(["up", "down"]),
+        "direction": direction,
         "confidence": confidence,
         "predicted_date": next_weekday(today).isoformat(),
         "features": {
@@ -95,7 +103,7 @@ def mock_prediction(ticker):
             "volatility": trend7(rng, vol, 2.5),
             "volume_change": trend7(rng, vc, 20),
         },
-        "history": fetch_history(ticker),
+        "history": history,
         "last5": last5,
         "stock_hit_rate": {
             "rate": round(rng.uniform(44, 66), 1),
