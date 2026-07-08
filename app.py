@@ -11,6 +11,7 @@ import re
 from datetime import date, timedelta
 
 from flask import Flask, jsonify, render_template
+from utils.dashboard import fetch_sector
 
 app = Flask(__name__)
 
@@ -103,7 +104,7 @@ def mock_prediction(ticker):
 
     return {
         "ticker": ticker,
-        "sector": rng.choice(SECTORS),
+        "sector": fetch_sector(ticker),
         "direction": rng.choice(["up", "down"]),
         "confidence": confidence,
         "predicted_date": next_weekday(today).isoformat(),
