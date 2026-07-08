@@ -1,7 +1,7 @@
-"""Flask stub backend for the Kouros prediction dashboard.
+"""Flask backend for the Kouros prediction dashboard.
 
-This module intentionally has zero dependencies on yfinance, joblib, or utils/.
-All API responses are generated locally with seeded random data.
+Real data: sector and price history (via utils/dashboard.py).
+Stub data: direction, confidence, features, trends, last5, hit rate, indices.
 
 Run: python app.py  ->  http://127.0.0.1:5001
 """
@@ -11,14 +11,9 @@ import re
 from datetime import date, timedelta
 
 from flask import Flask, jsonify, render_template
-from utils.dashboard import fetch_sector
+from utils.dashboard import fetch_sector, fetch_history
 
 app = Flask(__name__)
-
-SECTORS = [
-    "Technology", "Financials", "Energy", "Healthcare",
-    "Consumer", "Industrials", "Utilities",
-]
 
 INDEX_DEFS = [
     ("SPY", "S&P 500"),
@@ -59,31 +54,9 @@ def trend7(rng, end, step):
 
 
 def mock_prediction(ticker):
-    """Deterministic fake prediction payload for one ticker."""
+    """Prediction payload — real sector/history, stub fields until later steps."""
     rng = _rng(ticker)
     today = date.today()
-
-    days = prev_weekdays(today, 60)
-    price = rng.uniform(18, 480)
-    prices = []
-    for _ in days:
-        price *= 1 + rng.gauss(0.0006, 0.018)
-        prices.append(round(price, 2))
-
-    ohlc = []
-    prev = None
-    for close in prices:
-        open_ = prev if prev is not None else close
-        body_hi, body_lo = max(open_, close), min(open_, close)
-        day_range = close * rng.uniform(0.006, 0.022)
-        wick = day_range * rng.uniform(0.25, 0.55)
-        ohlc.append({
-            "o": round(open_, 2),
-            "h": round(body_hi + wick, 2),
-            "l": round(max(0.01, body_lo - wick), 2),
-            "c": close,
-        })
-        prev = close
 
     confidence = round(rng.uniform(50.5, 69.5), 1)
     last5 = [
@@ -122,11 +95,7 @@ def mock_prediction(ticker):
             "volatility": trend7(rng, vol, 2.5),
             "volume_change": trend7(rng, vc, 20),
         },
-        "history": {
-            "dates": [d.isoformat() for d in days],
-            "prices": prices,
-            "ohlc": ohlc,
-        },
+        "history": fetch_history(ticker),
         "last5": last5,
         "stock_hit_rate": {
             "rate": round(rng.uniform(44, 66), 1),
