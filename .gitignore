@@ -14,3 +14,4 @@ AGENTS.md
 # Local runtime data
 data/
 *.db
+docs/stub_data_implementation.md
