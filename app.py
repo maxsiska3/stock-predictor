@@ -1,7 +1,7 @@
 """Flask backend for the Kouros prediction dashboard.
 
-Real data: sector, price history, direction, confidence (via utils/dashboard.py).
-Stub data: features, trends, last5, hit rate, indices.
+Real data: sector, history, direction, confidence, features, trends (utils/dashboard.py).
+Stub data: last5, hit rate, indices.
 
 Run: python app.py  ->  http://127.0.0.1:5001
 """
@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from flask import Flask, jsonify, render_template
 from utils.dashboard import (
     download_ohlcv,
+    fetch_features_and_trends,
     fetch_history,
     fetch_prediction,
     fetch_sector,
@@ -51,21 +52,15 @@ def prev_weekdays(d, n):
     return out[::-1]
 
 
-def trend7(rng, end, step):
-    vals = [end]
-    for _ in range(6):
-        vals.append(vals[-1] + rng.gauss(0, step))
-    return [round(v, 2) for v in reversed(vals)]
-
-
 def mock_prediction(ticker):
-    """Prediction payload — real sector/history/direction/confidence; stub rest."""
+    """Prediction payload — real data except last5, hit rate."""
     rng = _rng(ticker)
     today = date.today()
 
     raw_df = download_ohlcv(ticker)
     history = fetch_history(ticker, raw_df=raw_df)
     direction, confidence = fetch_prediction(ticker, history_df=raw_df)
+    features, trends = fetch_features_and_trends(raw_df)
 
     last5 = [
         {
@@ -77,32 +72,14 @@ def mock_prediction(ticker):
         for d in prev_weekdays(today, 5)
     ]
 
-    rsi = round(rng.uniform(22, 82), 1)
-    macd = round(rng.uniform(-2.5, 2.5), 2)
-    boll = round(rng.uniform(0.05, 0.95), 2)
-    vol = round(rng.uniform(12, 55), 1)
-    vc = round(rng.uniform(-45, 160), 1)
-
     return {
         "ticker": ticker,
         "sector": fetch_sector(ticker),
         "direction": direction,
         "confidence": confidence,
         "predicted_date": next_weekday(today).isoformat(),
-        "features": {
-            "rsi": rsi,
-            "macd": macd,
-            "bollinger": boll,
-            "volatility": vol,
-            "volume_change": vc,
-        },
-        "trends": {
-            "rsi": trend7(rng, rsi, 4),
-            "macd": trend7(rng, macd, 0.35),
-            "bollinger": trend7(rng, boll, 0.09),
-            "volatility": trend7(rng, vol, 2.5),
-            "volume_change": trend7(rng, vc, 20),
-        },
+        "features": features,
+        "trends": trends,
         "history": history,
         "last5": last5,
         "stock_hit_rate": {

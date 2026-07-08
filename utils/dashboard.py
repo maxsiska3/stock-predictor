@@ -3,6 +3,7 @@ import pandas as pd
 
 from utils.predict import predict_stock
 from utils.yfinance_setup import configure_yfinance, get_yf_session
+from utils.features import compute_features
 
 configure_yfinance()
 
@@ -85,5 +86,36 @@ def fetch_prediction(ticker, history_df=None):
         direction = "up" if prediction[0] == 1 else "down"
         confidence = round(float(proba[0].max()) * 100, 1)
         return direction, confidence
+    except Exception:
+        return None, None
+
+
+_UI_COLS = [
+    ("rsi", "rsi", lambda v: round(float(v), 1)),
+    ("macd", "macd", lambda v: round(float(v), 2)),
+    ("bollinger", "bollinger_bands_position", lambda v: round(float(v), 2)),
+    ("volatility", "volatility", lambda v: round(float(v) * (252 ** 0.5) * 100, 1)),
+    ("volume_change", "volume_change", lambda v: round(float(v) * 100, 1)),
+]
+
+
+def fetch_features_and_trends(raw_df):
+    """Return (features, trends) dicts for the dashboard UI."""
+    if raw_df is None or raw_df.empty:
+        return None, None
+    try:
+        df = compute_features(raw_df)
+        source_cols = [src for _, src, _ in _UI_COLS]
+        tail = df[source_cols].tail(7)
+        last = df.iloc[-1]
+        if any(pd.isna(last[src]) for _, src, _ in _UI_COLS):
+            return None, None
+
+        features = {}
+        trends = {}
+        for json_key, src_col, fmt in _UI_COLS:
+            features[json_key] = fmt(last[src_col])
+            trends[json_key] = [fmt(v) for v in tail[src_col].tolist()]
+        return features, trends
     except Exception:
         return None, None
