@@ -15,7 +15,7 @@ The prediction terminal frontend ([`templates/predict.html`](templates/predict.h
 What I implemented myself:
 
 - **Flask backend** — real-data routes in [`app.py`](app.py) and [`utils/dashboard.py`](utils/dashboard.py): sector, OHLCV history, model predictions, features, per-ticker backtest, and watchlist-wide market stats
-- **Model training** — [`explore.py`](explore.py) and the saved artifacts in [`model/`](model/)
+- **Model training** — [`train_multi.py`](train_multi.py) (pooled 50-ticker + isotonic calibration), [`explore.py`](explore.py) (AAPL-only legacy), and the saved artifacts in [`model/`](model/)
 - **Feature engineering & inference** — [`utils/features.py`](utils/features.py), [`utils/predict.py`](utils/predict.py), and [`get_predictions.py`](get_predictions.py)
 
 **One exception:** the **Model track record** section got complicated fast (walk-forward backtest shape, watchlist-wide aggregates, caching, wiring the heat strip and stats panels to real data). Cursor helped with a small slice of that — mostly the backtest helpers in `utils/dashboard.py`, the `/api/market-stats` route, and the frontend hooks in `predict.html`. The rest of the backend and all of the ML work stayed mine.
@@ -35,9 +35,9 @@ What I implemented myself:
 
 **ML pipeline (offline)**
 
-- Fetches ~6 months of daily OHLCV via `yfinance`
-- Engineers features: pct change, volatility, volume change, gap, RSI, MACD, Bollinger position
-- Runs the saved model in `model/` to predict **next trading day direction**
+- Fetches ~6 months of daily OHLCV via `yfinance` (plus SPY for market-context features)
+- Engineers 16 features: pct change, volatility, volume change, gap, RSI, MACD, Bollinger position, SPY excess return, lags, momentum, ATR, volume SMA ratio
+- Runs the saved **isotonic-calibrated** RandomForest in `model/` to predict **next trading day direction**
 - Also available via `get_predictions.py` CLI batch runner
 
 ---
@@ -61,8 +61,13 @@ The first `/api/market-stats` request backtests the full 50-ticker watchlist (~3
 
 ```
 app.py                      Flask server (real predictions for the dashboard)
-explore.py                  Training script — rebuild model artifacts
+train_multi.py              Primary training — pooled 50-ticker data + isotonic calibration
+explore.py                  Legacy AAPL-only training script
+eval_baseline.py            Phase 1 baseline eval (AAPL, before retraining)
 get_predictions.py          CLI batch runner over the real model
+docs/
+  lab-notes.md              Experiment log (metrics, retrains, calibration)
+  LEARNING_PLAN.md          Self-paced ML improvement guide
 templates/
   predict.html              Single-page prediction terminal UI
 static/
@@ -74,8 +79,8 @@ utils/
   watchlist.py              Fixed 50-ticker list for market-stats aggregate (not user-editable in UI)
   yfinance_setup.py         yfinance session + cache dir
 model/
-  scaler.pkl                Fitted StandardScaler
-  trained_model.pkl         Trained RandomForest
+  scaler.pkl                Fitted StandardScaler (16 features)
+  trained_model.pkl         CalibratedClassifierCV wrapping RandomForest
 ```
 
 ---
@@ -109,14 +114,27 @@ Example `/api/predict/AAPL` response (abbreviated):
 
 ## Retrain the model
 
-`explore.py` downloads history, trains a RandomForest with time-series CV, and writes artifacts to `model/`. Requires `matplotlib` (not in `requirements.txt` — install separately if training):
+**Primary path** — `train_multi.py` downloads pooled watchlist data (cached to `data/pooled_train.pkl`), grid-searches a RandomForest, fits **isotonic calibration** on a held-out slice of the train period, and writes artifacts to `model/`:
+
+```bash
+python train_multi.py          # full grid search + calibration (~30+ min)
+python train_multi.py --fast   # known RF params + calibration (~2 min, uses cache)
+```
+
+**Legacy path** — `explore.py` trains on AAPL only. Requires `matplotlib` (not in `requirements.txt`):
 
 ```bash
 pip install matplotlib
 python explore.py
 ```
 
+**Evaluate before retraining** — `eval_baseline.py` runs AAPL-only baselines (majority class, time-series CV, holdout). Copy results into `docs/lab-notes.md`.
+
 After retraining, restart `app.py` so the new model is loaded.
+
+### Confidence calibration
+
+Raw RandomForest `predict_proba` scores were overconfident at 65%+ (hit rate inverted to ~35%). The shipped model wraps the RF in `CalibratedClassifierCV(FrozenEstimator(...), method="isotonic")`, fit on the last 15% of the training window. Most live scores now land in the 50–60% range, matching the model's ~50% accuracy. See `docs/lab-notes.md` for before/after metrics.
 
 ---
 

@@ -997,20 +997,25 @@ function countUp(el, target, dec = 1) {
 }
 
 /* ---------- ConfidenceCard ---------- */
+function confidenceBadge(confidence, conflict) {
+  if (conflict) return { label: "Indicators Disagree", off: false };
+  if (confidence >= 60) return { label: "High Conviction", off: false };
+  if (confidence >= 55) return { label: "Moderate", off: true };
+  return { label: "Low Confidence", off: true };
+}
+
 function renderConfidenceCard({ direction, confidence, signalsAgree, predictedDate }) {
   const conflict = signalsAgree === 0;
+  const badge = confidenceBadge(confidence, conflict);
   $("confCard").className = "conf-card " + (conflict ? "conflict" : direction);
   $("heroWord").textContent = direction === "up" ? "Bullish" : "Bearish";
   countUp($("heroConf"), confidence, 1);
   $("ccFill").style.width = confidence + "%";
   $("ccMarker").style.left = confidence + "%";
   $("ccBar").setAttribute("aria-label", `Confidence ${confidence} percent`);
-  const reliable = !conflict && confidence >= 55 && confidence < 65;
   const pill = $("heroBadge");
-  pill.className = "cc-pill" + (reliable ? "" : " off");
-  pill.textContent = conflict
-    ? "Indicators Disagree"
-    : reliable ? "Reliable Range" : "Outside Reliable Range";
+  pill.className = "cc-pill" + (badge.off ? " off" : "");
+  pill.textContent = badge.label;
   $("convNote").textContent = `${signalsAgree} of 4 Signals Agree`;
   if (predictedDate) {
     const call = direction === "up" ? "up" : "down";
@@ -1437,7 +1442,8 @@ function renderMarketStats(stats) {
     if (!b) return;
     row.classList.toggle("best", b.rate === best && b.count > 0);
     row.querySelector(".fl").style.width = (b.rate ?? 0) + "%";
-    row.querySelector(".pct").textContent = b.rate != null ? `${b.rate}%` : "n/a";
+    const countNote = b.count ? ` (${b.count})` : "";
+    row.querySelector(".pct").textContent = b.rate != null ? `${b.rate}%${countNote}` : "n/a";
   });
 
   $("sectorList").innerHTML = stats.sectors.map(s => {

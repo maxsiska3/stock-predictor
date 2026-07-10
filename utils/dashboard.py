@@ -5,7 +5,7 @@ import numpy as np
 import yfinance as yf
 import pandas as pd
 
-from utils.predict import MIN_HISTORY_ROWS, predict_stock, scaler, trained_model
+from utils.predict import MIN_HISTORY_ROWS, predict_stock, scaler, trained_model, _download_spy_for_index
 from utils.yfinance_setup import configure_yfinance, get_yf_session, reset_yf_session
 from utils.features import compute_features, FEATURE_COLS
 from utils.watchlist import DEFAULT_WATCHLIST
@@ -127,7 +127,8 @@ def fetch_features_and_trends(raw_df):
     if raw_df is None or raw_df.empty:
         return None, None
     try:
-        df = compute_features(raw_df)
+        spy_df = _download_spy_for_index(raw_df.index)
+        df = compute_features(raw_df, spy_df=spy_df)
         source_cols = [src for _, src, _ in _UI_COLS]
         tail = df[source_cols].tail(7)
         last = df.iloc[-1]
@@ -144,7 +145,7 @@ def fetch_features_and_trends(raw_df):
         return None, None
 
 
-def backtest_predictions(raw_df, days=60):
+def backtest_predictions(raw_df, days=60, spy_df=None):
     """Walk-forward accuracy check for the frozen model, not a retrain.
 
     For each historical day, run the same saved scaler/model on features computed
@@ -155,7 +156,9 @@ def backtest_predictions(raw_df, days=60):
     if raw_df is None or raw_df.empty:
         return None
     try:
-        feats = compute_features(raw_df).dropna(subset=FEATURE_COLS)
+        if spy_df is None:
+            spy_df = _download_spy_for_index(raw_df.index)
+        feats = compute_features(raw_df, spy_df=spy_df).dropna(subset=FEATURE_COLS)
         if len(feats) < 2:
             return None
 
@@ -254,12 +257,34 @@ def get_index_predictions(index_defs, ttl=900):
 _CONFIDENCE_BANDS = [(50, 55), (55, 60), (60, 65), (65, 1000)]
 
 
+def _spy_for_live_window(months=6, _retry=True):
+    """Download recent SPY history once for batch backtests / feature builds."""
+    try:
+        session = get_yf_session()
+        start = pd.Timestamp.now() - pd.DateOffset(months=months)
+        spy = _flatten_download(
+            yf.download("SPY", start=start, progress=False, session=session, threads=False)
+        )
+        if spy is None or spy.empty:
+            raise ValueError("empty SPY download")
+        return spy
+    except Exception:
+        if _retry:
+            reset_yf_session()
+            return _spy_for_live_window(months=months, _retry=False)
+        return None
+
+
 def _compute_market_stats(tickers, days=90):
     pooled = []
     sector_calls = []
     stock_rows = []
     bullish = 0
     tracked = 0
+
+    spy_df = _spy_for_live_window()
+    if spy_df is None:
+        return None
 
     for i, ticker in enumerate(tickers):
         if i > 0:
@@ -269,7 +294,7 @@ def _compute_market_stats(tickers, days=90):
         if raw_df is None:
             continue
 
-        results = backtest_predictions(raw_df, days=days) or []
+        results = backtest_predictions(raw_df, days=days, spy_df=spy_df) or []
         pooled.extend(results)
         if results:
             hits = sum(r["hit"] for r in results)

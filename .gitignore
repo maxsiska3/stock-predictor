@@ -15,3 +15,7 @@ AGENTS.md
 data/
 *.db
 docs/stub_data_implementation.md
+
+# Local model backups (canonical artifacts live in model/)
+model/backup/
+model-backup/
