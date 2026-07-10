@@ -6,6 +6,7 @@ last5, hit rate, indices, and the watchlist-wide market stats
 
 Run: python app.py  ->  http://127.0.0.1:5001
 """
+import os
 import re
 import threading
 from datetime import date, timedelta
@@ -21,8 +22,12 @@ from utils.dashboard import (
     get_index_predictions,
     get_market_stats,
 )
+from utils.watchlist import DEFAULT_WATCHLIST
 
 app = Flask(__name__)
+
+# Yahoo-style symbols: letters, digits, dots, hyphens (e.g. BRK-B), carets for indices
+TICKER_PATTERN = re.compile(r"^[A-Z][A-Z0-9.\-^]{0,9}$")
 
 INDEX_DEFS = [
     ("SPY", "S&P 500"),
@@ -47,9 +52,21 @@ def build_prediction(ticker):
     today = date.today()
 
     raw_df = download_ohlcv(ticker)
+    if raw_df is None:
+        return {"error": "market data unavailable"}
+
     history = fetch_history(ticker, raw_df=raw_df)
+    if history is None:
+        return {"error": "market data unavailable"}
+
     direction, confidence = fetch_prediction(ticker, history_df=raw_df)
+    if direction is None or confidence is None:
+        return {"error": "prediction unavailable"}
+
     features, trends = fetch_features_and_trends(raw_df)
+    if features is None or trends is None:
+        return {"error": "features unavailable"}
+
     last5, stock_hit_rate = fetch_performance(raw_df)
 
     return {
@@ -61,7 +78,7 @@ def build_prediction(ticker):
         "features": features,
         "trends": trends,
         "history": history,
-        "last5": last5,
+        "last5": last5 or [],
         "stock_hit_rate": stock_hit_rate,
     }
 
@@ -77,15 +94,18 @@ def build_indices():
 
 @app.route("/")
 def index():
-    return render_template("predict.html")
+    return render_template("predict.html", watchlist=DEFAULT_WATCHLIST)
 
 
 @app.route("/api/predict/<ticker>")
 def predict(ticker):
     ticker = ticker.upper().strip()
-    if not re.fullmatch(r"[A-Z.]{1,6}", ticker):
+    if not TICKER_PATTERN.fullmatch(ticker):
         return jsonify({"error": "unknown ticker"}), 404
-    return jsonify(build_prediction(ticker))
+    payload = build_prediction(ticker)
+    if "error" in payload:
+        return jsonify(payload), 503
+    return jsonify(payload)
 
 
 @app.route("/api/indices")
@@ -115,4 +135,6 @@ def _warm_market_stats_cache():
 
 if __name__ == "__main__":
     threading.Thread(target=_warm_market_stats_cache, daemon=True).start()
-    app.run(debug=True, port=5001)
+    debug = os.environ.get("FLASK_DEBUG", "1").lower() not in ("0", "false", "no")
+    port = int(os.environ.get("PORT", "5001"))
+    app.run(debug=debug, port=port)

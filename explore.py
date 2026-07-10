@@ -183,6 +183,6 @@ jl.dump(scaler, "model/scaler.pkl")
 # Cross-validated accuracy is around 52%, single-split test accuracy around 57%.
 #
 # OUTPUTS
-# The trained model and scaler are saved to model/ via joblib for offline CLI use
-# (see get_predictions.py). The Flask dashboard uses stub data only (app.py).
+# The trained model and scaler are saved to model/ via joblib for inference
+# (see get_predictions.py and utils/predict.py) and the Flask dashboard (app.py).
 # =============================================================================

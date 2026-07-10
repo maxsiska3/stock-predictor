@@ -661,6 +661,42 @@
   .bullbear-bar .bear { background: var(--down); color: #fff; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; }
   .bullbear-note { font-size: 12px; color: var(--faint); }
 
+  .watchlist-note {
+    margin: -8px 0 20px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--dim);
+    max-width: 72ch;
+  }
+  .watchlist-details {
+    margin: -12px 0 20px;
+    font-size: 12px;
+    color: var(--faint);
+  }
+  .watchlist-details summary {
+    cursor: pointer;
+    font-family: var(--alt);
+    font-weight: 500;
+    color: var(--dim);
+    user-select: none;
+  }
+  .watchlist-details summary:hover { color: var(--blue); }
+  .watchlist-tickers {
+    margin: 10px 0 0;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--faint);
+    letter-spacing: .02em;
+  }
+  .search-note {
+    margin: 0;
+    padding: 0 20px 14px;
+    font-size: 12px;
+    color: var(--faint);
+    background: #fff;
+    border-bottom: 1px solid var(--hair);
+  }
+
   /* miss severity heat strip */
   .heatstrip { display: flex; flex-wrap: wrap; gap: 3px; margin: 14px 0 12px; }
   .heatstrip .cell { width: 11px; height: 24px; border-radius: 2px; flex: 0 0 auto; }
@@ -738,11 +774,12 @@
     <div class="terminal-head">
       <span class="terminal-head-label">Lookup</span>
       <form class="search" id="searchForm">
-        <input id="searchInput" placeholder="Search a ticker, e.g. NVDA" maxlength="6" autocomplete="off" spellcheck="false" aria-label="Ticker symbol">
+        <input id="searchInput" placeholder="Search a ticker, e.g. NVDA" maxlength="10" autocomplete="off" spellcheck="false" aria-label="Ticker symbol">
         <button type="submit">Predict</button>
       </form>
     </div>
-  <p id="searchError">Unknown ticker. Try letters only, like AAPL or MSFT.</p>
+  <p id="searchError">Could not load that ticker. Use a valid symbol like AAPL, MSFT, or BRK-B.</p>
+  <p class="search-note">Look up any valid ticker symbol. Predictions use live market data — not limited to the fixed 50-stock watchlist below.</p>
 
   <!-- 3. hero -->
   <section class="hero" id="hero">
@@ -873,6 +910,15 @@
   <!-- 6. metrics -->
   <section>
     <h2>Model track record</h2>
+    <p class="watchlist-note">
+      Aggregate stats in this section are not dynamic. They always backtest the same
+      fixed list of 50 large-cap stocks — you cannot add or remove names from the UI.
+      Per-ticker results above (search, last 5 calls, form guide) still reflect whichever symbol you look up.
+    </p>
+    <details class="watchlist-details">
+      <summary>View the 50 tracked tickers</summary>
+      <p class="watchlist-tickers mono">{{ watchlist | join(', ') }}</p>
+    </details>
     <div class="metrics-track">
 
       <div class="panel">
@@ -987,9 +1033,16 @@ function idxItem(i) {
 
 /* ---------- indices marquee ---------- */
 async function loadIndices() {
-  const data = await (await fetch("/api/indices")).json();
-  const html = data.map(idxItem).join("");
-  $("indicesTrack").innerHTML = html + html;
+  try {
+    const res = await fetch("/api/indices");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+    const html = data.map(idxItem).join("");
+    $("indicesTrack").innerHTML = html + html;
+  } catch {
+    // Marquee stays empty; rest of the page still works
+  }
 }
 
 /* ---------- chart ---------- */
@@ -1257,6 +1310,7 @@ function countAgreeingSignals(p) {
 
 /* ---------- feature cards ---------- */
 function renderFeatures(f, trends = {}) {
+  if (!f) return;
   // RSI arc, path length 157.08
   $("rsiVal").textContent = f.rsi.toFixed(1);
   $("rsiArc").style.strokeDashoffset = (1 - f.rsi / 100) * 157.08;
@@ -1340,9 +1394,11 @@ function renderPrediction(p) {
   currentTicker = p.ticker;
   lastStockHitRate = p.stock_hit_rate || null;
   $("heroTicker").textContent = p.ticker;
-  $("heroSector").textContent = p.sector;
-  $("heroPrice").innerHTML = 'Last close $<span class="mono" id="heroPriceNum">0.00</span>';
-  countUp($("heroPriceNum"), p.history.prices.at(-1), 2);
+  $("heroSector").textContent = p.sector || "Unknown";
+  if (p.history?.prices?.length) {
+    $("heroPrice").innerHTML = 'Last close $<span class="mono" id="heroPriceNum">0.00</span>';
+    countUp($("heroPriceNum"), p.history.prices.at(-1), 2);
+  }
   renderConfidenceCard({
     direction: p.direction,
     confidence: p.confidence,
@@ -1453,8 +1509,11 @@ async function loadTicker(t) {
   sections.forEach(s => s.classList.add("loading"));
   try {
     const res = await fetch("/api/predict/" + encodeURIComponent(t));
-    if (!res.ok) throw new Error();
     const p = await res.json();
+    if (!res.ok || p.error) throw new Error(p.error || "request failed");
+    if (!p.history?.prices?.length || !p.features || p.direction == null) {
+      throw new Error("incomplete response");
+    }
     renderPrediction(p);
     renderFeatures(p.features, p.trends);
     renderChart(p.history);

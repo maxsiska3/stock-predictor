@@ -1,10 +1,11 @@
 import time
 from datetime import date, timedelta
 
+import numpy as np
 import yfinance as yf
 import pandas as pd
 
-from utils.predict import predict_stock, scaler, trained_model
+from utils.predict import MIN_HISTORY_ROWS, predict_stock, scaler, trained_model
 from utils.yfinance_setup import configure_yfinance, get_yf_session, reset_yf_session
 from utils.features import compute_features, FEATURE_COLS
 from utils.watchlist import DEFAULT_WATCHLIST
@@ -35,7 +36,10 @@ def download_ohlcv(ticker, _retry=True):
         )
         if raw_df.empty:
             raise ValueError("empty download")
-        return raw_df.dropna(subset=["Open", "High", "Low", "Close"])
+        cleaned = raw_df.dropna(subset=["Open", "High", "Low", "Close"])
+        if len(cleaned) < MIN_HISTORY_ROWS:
+            raise ValueError(f"insufficient history: need {MIN_HISTORY_ROWS} rows, got {len(cleaned)}")
+        return cleaned
     except Exception:
         if _retry:
             reset_yf_session()
@@ -127,7 +131,7 @@ def fetch_features_and_trends(raw_df):
         source_cols = [src for _, src, _ in _UI_COLS]
         tail = df[source_cols].tail(7)
         last = df.iloc[-1]
-        if any(pd.isna(last[src]) for _, src, _ in _UI_COLS):
+        if any(not np.isfinite(last[src]) for _, src, _ in _UI_COLS):
             return None, None
 
         features = {}

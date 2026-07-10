@@ -26,12 +26,12 @@ What I implemented myself:
 
 **Prediction terminal (web UI)**
 
-- Search any ticker and view a next-day **up / down** call with confidence from the saved model
+- Search **any ticker** and view a next-day **up / down** call with confidence from the saved model
 - Live header marquee of major index/ETF predictions (SPY, QQQ, IWM, DIA, VIX, etc.)
 - Feature snapshot: RSI, MACD, Bollinger position, volatility, volume change (with 7-day spark trends)
 - 60-day price history with **line** or **candlestick** chart and OHLC hover tooltips
 - Last 5 calls and per-stock hit rate from a walk-forward backtest on the frozen model
-- Watchlist-wide track record: 30/60/90-day hit rates, Brier score, confidence bands, sector breakdown, bull/bear read
+- **Fixed 50-stock watchlist** track record (not dynamic): 30/60/90-day hit rates, Brier score, confidence bands, sector breakdown, bull/bear read — always the same large-cap list in `utils/watchlist.py`, not your search history
 
 **ML pipeline (offline)**
 
@@ -71,7 +71,7 @@ utils/
   dashboard.py              Real API payload builders + watchlist backtest aggregate
   features.py               Feature engineering (shared by train + predict)
   predict.py                Load model, fetch data, run inference
-  watchlist.py              Default 50-ticker batch list
+  watchlist.py              Fixed 50-ticker list for market-stats aggregate (not user-editable in UI)
   yfinance_setup.py         yfinance session + cache dir
 model/
   scaler.pkl                Fitted StandardScaler

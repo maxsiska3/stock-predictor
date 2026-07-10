@@ -1,4 +1,5 @@
-# utils/watchlist.py — default symbols for batch predictions
+# utils/watchlist.py — fixed 50 large-cap symbols for market-stats aggregate and CLI batch runs.
+# Not user-editable in the UI; change this file to update the tracked set.
 
 DEFAULT_WATCHLIST = [
     "ACN", "AAPL", "META", "GOOG", "AMZN",
