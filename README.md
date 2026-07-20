@@ -70,8 +70,6 @@ docs/
   LEARNING_PLAN.md          Self-paced ML improvement guide
 templates/
   predict.html              Single-page prediction terminal UI
-static/
-  Kouros Logo.dc.html       Brand identity reference
 utils/
   dashboard.py              Real API payload builders + watchlist backtest aggregate
   features.py               Feature engineering (shared by train + predict)
